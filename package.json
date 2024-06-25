@@ -1,0 +1,89 @@
+{
+  "name": "AutoAPIGen",
+  "displayName": "AutoAPIGen",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
+    "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
+    "lint": "eslint \"src/**/*.{ts,vue}\"",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "auto-api-gen",
+          "title": "AutoAPIGen",
+          "icon": "src/assets/img/default.png"
+        }
+      ]
+    },
+    "views": {
+      "auto-api-gen": [
+        {
+          "type": "webview",
+          "id": "base-view-sidebar",
+          "name": "Auto API Gen Extension",
+          "icon": "src/assets/img/default.png",
+          "contextualTitle": "Auto API Gen Extension"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "AutoAPIGen.showContent",
+        "title": "Show Content"
+      }
+    ],
+    "activationEvents": [
+      "onView: base-view-sidebar",
+      "onCommand:AutoAPIGen.showContent"
+    ]
+  },
+  "dependencies": {
+    "@intlify/unplugin-vue-i18n": "^0.8.1",
+    "@vitest/ui": "^0.26.2",
+    "@vueuse/core": "^10.11.0",
+    "vue": "^3.2.45",
+    "vue-i18n": "9"
+  },
+  "devDependencies": {
+    "@arco-design/web-vue": "^2.55.3",
+    "@arco-plugins/vite-vue": "^1.4.5",
+    "@iconify-json/logos": "^1.1.43",
+    "@iconify-json/mdi": "^1.1.39",
+    "@iconify-json/vscode-icons": "^1.1.35",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/user-event": "^14.4.3",
+    "@testing-library/vue": "^6.6.1",
+    "@types/jest": "^29.2.4",
+    "@types/node": "^18.11.17",
+    "@types/vscode": "^1.73.0",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "@vitejs/plugin-vue": "^2.3.3",
+    "concurrently": "^7.6.0",
+    "eslint": "^8.30.0",
+    "eslint-plugin-vue": "^9.8.0",
+    "jsdom": "^20.0.3",
+    "tailwindcss": "^3.2.4",
+    "typescript": "^4.8.4",
+    "unplugin-auto-import": "^0.17.6",
+    "unplugin-icons": "^0.14.15",
+    "unplugin-vue-components": "^0.27.0",
+    "vite": "^2.9.14",
+    "vitest": "^0.26.2",
+    "vue-tsc": "^0.40.6"
+  }
+}
