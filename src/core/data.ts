@@ -36,5 +36,3 @@ export const getProjectList = async () => {
         vscode.window.showErrorMessage(`获取项目列表失败: ${error?.message || '未知错误'}`)
     }
 }
-
-export const get
