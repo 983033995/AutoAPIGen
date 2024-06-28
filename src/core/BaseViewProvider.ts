@@ -2,10 +2,6 @@
  * @FilePath: /AutoAPIGen/src/core/BaseViewProvider.ts
  * @Description: 
  */
-/*
- * @FilePath: /AutoAPIGen/src/core/BaseViewProvider.ts
- * @Description: 
- */
 import * as vscode from 'vscode'
 import { handleMessages } from './messenger'
 
@@ -16,6 +12,7 @@ export class BaseViewProvider implements vscode.WebviewViewProvider {
 
 	constructor(
 		private readonly _extensionUri: vscode.Uri,
+		private readonly _context: vscode.ExtensionContext
 	) { }
 
 	public resolveWebviewView(
@@ -44,7 +41,7 @@ export class BaseViewProvider implements vscode.WebviewViewProvider {
 		const styleMainUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist', 'output.css'))
 		const styleArco = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'dist/compiled', 'style.css'))
 
-		handleMessages(webview)
+		handleMessages(webview, this._context, 'BaseViewProvider')
 
 		return `
 			<!DOCTYPE html>

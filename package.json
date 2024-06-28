@@ -42,19 +42,26 @@
     },
     "commands": [
       {
-        "command": "AutoAPIGen.showContent",
-        "title": "Show Content"
+        "command": "AutoAPIGen.showConfig",
+        "title": "配置信息"
+      },
+      {
+        "command": "AutoAPIGen.showDetail",
+        "title": "接口详情"
       }
     ],
     "activationEvents": [
       "onView: base-view-sidebar",
-      "onCommand:AutoAPIGen.showContent"
+      "onCommand:AutoAPIGen.showDetail",
+      "onCommand:AutoAPIGen.showConfig"
     ]
   },
   "dependencies": {
     "@intlify/unplugin-vue-i18n": "^0.8.1",
     "@vitest/ui": "^0.26.2",
     "@vueuse/core": "^10.11.0",
+    "axios": "^1.7.2",
+    "fs-extra": "^11.2.0",
     "vue": "^3.2.45",
     "vue-i18n": "9"
   },

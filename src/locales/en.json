@@ -1,5 +1,26 @@
 {
   "hello": "Hello",
   "language": "English",
-  "systemTip": "current application"
+  "systemText": "current application",
+  "tip": "the configuration file does not exist",
+  "tip1": "incant configuration information",
+  "tip2": "deployment",
+  "tip3": "refresh",
+  "configPageTitle": "Configuration Information",
+  "tip4": "current working space",
+  "configInfoFrom": {
+    "appLabel": "app",
+    "Authorization": "Authorization",
+    "path": "generic path",
+    "projectId": "project id",
+    "head": "dependencies",
+    "get": "Get Request Configuration",
+    "post": "Post Request Configuration",
+    "put": "Put Request Configuration",
+    "delete": "Delete Request Configuration",
+    "patch": "Patch Request Configuration",
+    "model": "interface model"
+  },
+  "save": "save",
+  "tip5": "obtain list"
 }

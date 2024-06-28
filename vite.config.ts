@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/vite.config.ts
  * @Description: 
  */
+import path from 'path'
 import vue from '@vitejs/plugin-vue'
 import Icons from 'unplugin-icons/vite'
 import VueI18nPlugin from '@intlify/unplugin-vue-i18n/vite'
@@ -20,6 +21,11 @@ interface VitestConfigExport extends UserConfig {
 }
 
 module.exports = defineConfig({
+	resolve: {
+		alias: {
+			'@/': `${path.resolve(__dirname, 'src')}/`,
+		  },
+	},
 	plugins: [
 		vue({ customElement: true }),
 		Icons({
@@ -29,6 +35,7 @@ module.exports = defineConfig({
 		AutoImport({
 			imports: [
 				'vue',
+				'vue-i18n',
 				{
 					'@vueuse/core': ['useStorage'],
 				}
@@ -37,7 +44,6 @@ module.exports = defineConfig({
 		}),
 		vitePluginForArco({
 			style: 'css',
-			
 		}),
 		Components({
 			resolvers: [
@@ -52,6 +58,16 @@ module.exports = defineConfig({
 			entry: './src/view/index.ts',
 			formats: ['es', 'cjs'],
 			fileName: (format) => `index.${format}.js`
+		},
+		rollupOptions: {
+			output: {
+				entryFileNames: '[name].[format].js',
+				chunkFileNames: 'chunks/[name].[format].js',
+			},
+			input: {
+				index: './src/view/index.ts',
+				config: './src/view/config/index.ts'
+			}
 		},
 		emptyOutDir: false,
 		outDir: 'dist/compiled'

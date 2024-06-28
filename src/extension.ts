@@ -4,31 +4,57 @@
  */
 import * as vscode from 'vscode'
 import { BaseViewProvider } from './core/BaseViewProvider'
+import { generateConfigPage } from './core/configPageProvider'
 
 export function activate(context: vscode.ExtensionContext) {
-	const provider = new BaseViewProvider(context.extensionUri)
+	let currentPanel: vscode.WebviewPanel | undefined = undefined;
+	console.log('start----->currentPanel', currentPanel)
+	const provider = new BaseViewProvider(context.extensionUri, context)
 
+	const baseWebview = vscode.window.registerWebviewViewProvider(BaseViewProvider.viewType, provider)
 	// 注册 BaseViewProvider
-	context.subscriptions.push(
-		vscode.window.registerWebviewViewProvider(BaseViewProvider.viewType, provider)
-	)
+	context.subscriptions.push(baseWebview)
 
-	const disposable = vscode.commands.registerCommand('AutoAPIGen.showContent', function () {
-		const panel = vscode.window.createWebviewPanel(
-			'customContent',
-			'Custom Content',
-			vscode.ViewColumn.One,
-			{}
-		)
+	const disposable = vscode.commands.registerCommand('AutoAPIGen.showDetail', function (title, configInfo) {
+		console.log('----->configInfo', configInfo)
+		const columnToShowIn = vscode.window.activeTextEditor
+			? vscode.window.activeTextEditor.viewColumn
+			: undefined;
 
-		panel.webview.html = `<html><body><h1>Hello, Custom Content!</h1></body></html>`
+		if (currentPanel) {
+			// We re-use a panel when it's already open:
+			currentPanel.reveal(columnToShowIn)
+		} else {
+			// Otherwise, create a new panel:
+			currentPanel = vscode.window.createWebviewPanel(
+				'ProjectConfig',
+				'Project Config',
+				columnToShowIn || vscode.ViewColumn.One,
+				{
+					enableScripts: true,
+					localResourceRoots: [
+						context.extensionUri
+					]
+				}
+			)
+
+			currentPanel.title = title
+
+			currentPanel.webview.html = generateConfigPage(currentPanel.webview, context)
+
+			currentPanel.onDidDispose(
+				() => {
+				  currentPanel = undefined;
+				},
+				null,
+				context.subscriptions
+			);
+		}
 	})
 	context.subscriptions.push(disposable)
 
-	const message = context.workspaceState.get('AutoApiGen.setting', {
-		language: 'zh',
-		app: 'apifox'
-	})
-
-
+	// const message = context.workspaceState.get('AutoApiGen.setting', {
+	// 	language: 'zh',
+	// 	app: 'apifox'
+	// })
 }

@@ -27,5 +27,10 @@
     ]
   },
   "include": ["src/**/*", "src/**/*.json", "auto-imports.d.ts"],
-  "exclude": ["dist", "node_modules", "vite.config.ts"]
+  "exclude": ["dist", "node_modules", "vite.config.ts"],
+  "paths": {
+    "@/*": [
+      "./*"
+    ],
+  }
 }

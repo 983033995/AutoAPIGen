@@ -2,7 +2,7 @@
  * @FilePath: /AutoAPIGen/src/constant/index.ts
  * @Description: 
  */
-export const appList = [
+export const APP_LIST = [
     {
         label: 'apifox',
         value: 'apifox'
@@ -16,3 +16,32 @@ export const appList = [
         value: 'Apipost'
     }
 ]
+
+export const API_MODEL = [
+    {
+        label: 'vueUse',
+        value: 'vueUse'
+    },
+    {
+        label: 'axios',
+        value: 'axios'
+    },
+    {
+        label: 'swrv',
+        value: 'swrv'
+    },
+    {
+        label: 'VueHook Plus',
+        value: 'VueHook Plus'
+    },
+    {
+        label: 'wx',
+        value: 'wx'
+    },
+    {
+        label: '自定义',
+        value: 'custom'
+    },
+]
+
+export const SETTING_FILE_URL = '.vscode/autoApiGen.json'

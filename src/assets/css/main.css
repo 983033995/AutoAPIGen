@@ -17,6 +17,7 @@ body {
   font-size: var(--vscode-font-size);
   font-weight: var(--vscode-font-weight);
   font-family: var(--vscode-font-family);
+  overflow: hidden;
 }
 
 ol,
@@ -92,4 +93,13 @@ textarea {
 input::placeholder,
 textarea::placeholder {
   color: var(--vscode-input-placeholderForeground);
+}
+
+.empty-tip {
+  color: var(--vscode-foreground);
+}
+
+#app {
+  width: 100%;
+  height: 100vh;
 }
