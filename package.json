@@ -42,18 +42,18 @@
     },
     "commands": [
       {
-        "command": "AutoAPIGen.showConfig",
-        "title": "配置信息"
+        "command": "AutoAPIGen.showConfigPagePanel",
+        "title": "showConfigPagePanel"
       },
       {
-        "command": "AutoAPIGen.showDetail",
-        "title": "接口详情"
+        "command": "AutoAPIGen.closeConfigPagePanel",
+        "title": "closeConfigPagePanel"
       }
     ],
     "activationEvents": [
       "onView: base-view-sidebar",
-      "onCommand:AutoAPIGen.showDetail",
-      "onCommand:AutoAPIGen.showConfig"
+      "onCommand:AutoAPIGen.showConfigPagePanel",
+      "onCommand:AutoAPIGen.closeConfigPagePanel"
     ]
   },
   "dependencies": {

@@ -5,7 +5,7 @@
 import * as vscode from 'vscode'
 import { checkFolderOrFileExists, getText, getCurrentWorkspaceStructure, updateFileContent } from '../core/helper'
 import { SETTING_FILE_URL } from '../constant/index'
-import { initHttp, getProjectList, http } from './data'
+import { initHttp, getProjectList, http, getApiDetailList } from './data'
 
 const workspaceFolders = vscode.workspace.workspaceFolders || []
 
@@ -17,15 +17,15 @@ const webviewCollection: Record<webviewCollectionKey, vscode.Webview | undefined
 }
 
 export const handleMessages = (webview: vscode.Webview, context: vscode.ExtensionContext, key: webviewCollectionKey) => {
-	receiveMessages(webview, context)
+	receiveMessages(webview, context, key)
 
 	sendMessages(webview)
 
 	webviewCollection[key] = webview
 }
 
-async function getWorkspaceState(webview: vscode.Webview, context: vscode.ExtensionContext, command: string) {
-
+async function getWorkspaceState(webview: vscode.Webview, context: vscode.ExtensionContext, command: string, key) {
+	console.log('----->getWorkspaceState---webview', webview)
 	try {
 		const defaultSetting = context.workspaceState.get('AutoApiGen.setting', {
 			language: 'zh',
@@ -38,11 +38,18 @@ async function getWorkspaceState(webview: vscode.Webview, context: vscode.Extens
 			const settingFileUrl = vscode.Uri.joinPath(workspaceFolders[0].uri, SETTING_FILE_URL)
 			const settingFile = await getText(settingFileUrl)
 			settingObj = settingFile ? JSON.parse(settingFile) : {}
+			console.log('----->settingObj', settingObj)
 			if (settingObj.Authorization && settingObj.appName) {
+				const projectId = settingObj?.projectId && settingObj.projectId.length ? settingObj.projectId[settingObj.projectId.length - 1] : ''
+				console.log('----->projectId', projectId)
 				await initHttp(settingObj.appName, {
-					projectId: settingObj?.projectId || '',
+					projectId,
 					Authorization: settingObj?.Authorization,
 				})
+				if  (key === 'BaseViewProvider') {
+					const apiDetail = await getApiDetailList()
+					settingObj.apiDetailList = apiDetail
+				}
 			}
 		}
 		const result: ConfigurationInformation = {
@@ -66,7 +73,7 @@ async function getWorkspaceState(webview: vscode.Webview, context: vscode.Extens
  *
  * @param webview vscode的Webview实例
  */
-const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionContext) => {
+const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionContext, key: webviewCollectionKey) => {
 	webview.onDidReceiveMessage(async (message: WebviewMessage) => {
 		// let openPath: vscode.Uri
 		console.log('----->', message)
@@ -74,11 +81,11 @@ const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionConte
 		const handler: WebviewMessageCollection = {
 			openConfigPage: () => {
 				const { title, configInfo } = data
-				vscode.commands.executeCommand('AutoAPIGen.showDetail', title, configInfo)
+				vscode.commands.executeCommand('AutoAPIGen.showConfigPagePanel', title, configInfo)
 			},
 			getWorkspaceState: async () => {
 				console.log('----->getWorkspaceState')
-				await getWorkspaceState(webview, context, command)
+				await getWorkspaceState(webview, context, command, key)
 			},
 			setWorkspaceState: () => { },
 			getFolders: async () => {
@@ -93,6 +100,7 @@ const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionConte
 				console.log('----saveConfig', data)
 				try {
 					await updateFileContent(SETTING_FILE_URL, data)
+					vscode.commands.executeCommand('AutoAPIGen.closeConfigPagePanel')
 					webview.postMessage({
 						command,
 						data: {
@@ -100,7 +108,7 @@ const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionConte
 							message: '保存成功'
 						}
 					})
-					await getWorkspaceState(webviewCollection.BaseViewProvider as vscode.Webview, context, 'getWorkspaceState')
+					await getWorkspaceState(webviewCollection.BaseViewProvider as vscode.Webview, context, 'getWorkspaceState', key)
 				} catch (error) {
 					webview.postMessage({
 						command,

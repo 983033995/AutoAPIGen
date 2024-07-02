@@ -52,6 +52,7 @@ type KeysType = Expand<keyof ConfigFromModel>
 
 
 interface ProjectConfigInfo extends Partial<ConfigFromModel>{
+  apiDetailList?: any[]
 }
 
 type DirectoryItem = {

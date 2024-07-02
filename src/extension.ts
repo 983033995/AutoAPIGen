@@ -7,26 +7,32 @@ import { BaseViewProvider } from './core/BaseViewProvider'
 import { generateConfigPage } from './core/configPageProvider'
 
 export function activate(context: vscode.ExtensionContext) {
-	let currentPanel: vscode.WebviewPanel | undefined = undefined;
-	console.log('start----->currentPanel', currentPanel)
+	const workspaceFolders = vscode.workspace.workspaceFolders || []
+
+	if (workspaceFolders.length === 0) {
+		vscode.window.showInformationMessage('还没有打开项目，无法使用 AutoAPIGen 插件')
+		return
+	}
+	let configPagePanel: vscode.WebviewPanel | undefined = undefined;
+	console.log('start----->configPagePanel', configPagePanel)
 	const provider = new BaseViewProvider(context.extensionUri, context)
 
 	const baseWebview = vscode.window.registerWebviewViewProvider(BaseViewProvider.viewType, provider)
 	// 注册 BaseViewProvider
 	context.subscriptions.push(baseWebview)
 
-	const disposable = vscode.commands.registerCommand('AutoAPIGen.showDetail', function (title, configInfo) {
+	const disposable = vscode.commands.registerCommand('AutoAPIGen.showConfigPagePanel', function (title, configInfo) {
 		console.log('----->configInfo', configInfo)
 		const columnToShowIn = vscode.window.activeTextEditor
 			? vscode.window.activeTextEditor.viewColumn
 			: undefined;
 
-		if (currentPanel) {
-			// We re-use a panel when it's already open:
-			currentPanel.reveal(columnToShowIn)
+		if (configPagePanel) {
+			// 如果已经存在，则激活
+			configPagePanel.reveal(columnToShowIn)
 		} else {
-			// Otherwise, create a new panel:
-			currentPanel = vscode.window.createWebviewPanel(
+			// 否则创建一个新面板
+			configPagePanel = vscode.window.createWebviewPanel(
 				'ProjectConfig',
 				'Project Config',
 				columnToShowIn || vscode.ViewColumn.One,
@@ -38,13 +44,13 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			)
 
-			currentPanel.title = title
+			configPagePanel.title = title
 
-			currentPanel.webview.html = generateConfigPage(currentPanel.webview, context)
+			configPagePanel.webview.html = generateConfigPage(configPagePanel.webview, context)
 
-			currentPanel.onDidDispose(
+			configPagePanel.onDidDispose(
 				() => {
-				  currentPanel = undefined;
+					configPagePanel = undefined;
 				},
 				null,
 				context.subscriptions
@@ -53,8 +59,10 @@ export function activate(context: vscode.ExtensionContext) {
 	})
 	context.subscriptions.push(disposable)
 
-	// const message = context.workspaceState.get('AutoApiGen.setting', {
-	// 	language: 'zh',
-	// 	app: 'apifox'
-	// })
+	const closeConfigPanel = vscode.commands.registerCommand('AutoAPIGen.closeConfigPagePanel', function () {
+		if (configPagePanel) {
+			configPagePanel.dispose()
+		}
+	})
+	context.subscriptions.push(closeConfigPanel)
 }

@@ -11,7 +11,7 @@ export let http: AxiosInstance
 export const initHttp = async (appName: AppCollections, data: Record<string, any>) => {
     http = await api({
         appName,
-        Authorization: data.Authorization,
+        ...data,
     })
 }
 
@@ -36,3 +36,14 @@ export const getProjectList = async () => {
         vscode.window.showErrorMessage(`获取项目列表失败: ${error?.message || '未知错误'}`)
     }
 }
+
+export const getApiDetailList = async () => {
+    try {
+        const res = await http.get('/api-details?locale=zh-CN')
+        return res.data.data
+    } catch (error: any) {
+        console.error('----->getApiDetailList--error', error)
+        vscode.window.showErrorMessage(`获取接口详情失败: ${error?.message || '未知错误'}`)
+    }
+}
+

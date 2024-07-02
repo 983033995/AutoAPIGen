@@ -1,6 +1,11 @@
+/*
+ * @FilePath: /AutoAPIGen/src/core/api.ts
+ * @Description: 
+ */
 import axios from 'axios'
 
 const getModelOptions = (config: GetModelOptionsParams) => {
+    console.log('----->getModelOptions', config)
     const options = {
         apifox: {
             baseURL: 'https://api.apifox.cn/api/v1',
