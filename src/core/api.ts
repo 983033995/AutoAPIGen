@@ -4,6 +4,12 @@
  */
 import axios from 'axios'
 
+/**
+ * 获取模型选项
+ *
+ * @param config 获取模型选项的参数
+ * @returns 返回对应应用名的模型选项
+ */
 const getModelOptions = (config: GetModelOptionsParams) => {
     console.log('----->getModelOptions', config)
     const options = {
