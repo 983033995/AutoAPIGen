@@ -148,19 +148,21 @@ const handleSubmit = ({ values, errors }: { values: Record<string, any>; errors:
         submitLoading.value = false
     }
 }
+const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.path || '')
 </script>
 
 <template>
     <div class="w-full h-full flex flex-col">
         <a-page-header title="AutoApiGen" :subtitle="t('configPageTitle')" :show-back="false"></a-page-header>
 
-        <a-divider dashed :margin="0" />
-
-        <div class="ml-8 leading-[40px] h-[40px] text-[13px]">{{ t('tip4') }}：{{ configInfo?.workspaceFolders[0].uri.path }}
-        </div>
+        <a-divider dashed margin="2px" />
 
         <div class="w-full flex-1 overflow-hidden overflow-y-auto">
-            <a-form ref="formRef" :model="formConfig" @submit="handleSubmit" class="p-[20px]" :rules="formRules" :feedback="true">
+            <a-form ref="formRef" :model="formConfig" @submit="handleSubmit" class="p-[20px]" :rules="formRules" :feedback="true" auto-label-width>
+                <a-form-item :label="t('tip4')" class="relative">
+                    <a-input v-model="workspacePath" />
+                    <div class="absolute inset-0 z-30"></div>
+                </a-form-item>
                 <a-form-item field="appName" tooltip="Please enter username" :label="t('configInfoFrom.appLabel')">
                     <a-select v-model="formConfig.appName" placeholder="Please select ...">
                         <a-option v-for="item in APP_LIST" :key="item.value" :value="item.value"

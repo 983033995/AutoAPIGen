@@ -22,5 +22,6 @@
     "model": "interface model"
   },
   "save": "save",
-  "tip5": "obtain list"
+  "tip5": "obtain list",
+  "apiSearchDataPlaceholder": "please enter the keyword search"
 }

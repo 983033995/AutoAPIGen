@@ -57,6 +57,9 @@
     ]
   },
   "dependencies": {
+    "@iconify-json/hugeicons": "^1.1.0",
+    "@iconify-json/noto": "^1.1.18",
+    "@iconify/tailwind": "^1.1.1",
     "@intlify/unplugin-vue-i18n": "^0.8.1",
     "@vitest/ui": "^0.26.2",
     "@vueuse/core": "^10.11.0",
@@ -70,6 +73,8 @@
     "@arco-plugins/vite-vue": "^1.4.5",
     "@iconify-json/logos": "^1.1.43",
     "@iconify-json/mdi": "^1.1.39",
+    "@iconify-json/ph": "^1.1.13",
+    "@iconify-json/tabler": "^1.1.117",
     "@iconify-json/vscode-icons": "^1.1.35",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/user-event": "^14.4.3",

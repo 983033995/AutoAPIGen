@@ -11,6 +11,8 @@ type VSCode = {
 
 declare const vscode: VSCode;
 
+type ApiType = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options' | 'trace'
+
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
 
 type AppCollections = 'apifox' | 'postman' | 'apipost'
@@ -54,7 +56,8 @@ type KeysType = Expand<keyof ConfigFromModel>
 
 interface ProjectConfigInfo extends Partial<ConfigFromModel>{
   apiDetailList?: any[]
-  apiTreeList?: ApiTreeListResData
+  apiTreeList?: ApiTreeListResData[]
+  apiProjectList?: any[]
 }
 
 type DirectoryItem = {
@@ -112,10 +115,41 @@ interface FolderItem {
   projectBranchId: number
 }
 
-type ApiTreeListResData = Partial<{
-  children: ApiTreeListResData
+interface apiDetailItem {
+  folderId: number
+  id: number
+  name: string
+  type: string
+  path: string
+  method: string
+  [key: string]: any
+}
+
+type ApiTreeListResData = {
+  children: ApiTreeListResData[]
   folder: FolderItem
   key: string
   name: string
   type: "apiDetailFolder" | "apiDetail"
-}[]>
+  api?: apiDetailItem
+}
+
+type WebviewCollectionKey = 'configPageProvider' | 'BaseViewProvider'
+
+type WebviewMessageCommand = 'openConfigPage' | 'getWorkspaceState' | 'setWorkspaceState' | 'getFolders' | 'saveConfig' | 'getProjectList'
+
+interface WebviewMessage {
+  command: WebviewMessageCommand
+  data: any
+}
+
+type ApiTypeMap = {
+  [K in ApiType]: { class: string, color: string }
+}
+
+interface TreeNode {
+  id: number;
+  name: string;
+  children?: TreeNode[];
+  [key: string]: any
+}

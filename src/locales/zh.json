@@ -22,5 +22,6 @@
     "model": "接口模型"
   },
   "save": "保存",
-  "tip5": "获取项目列表"
+  "tip5": "获取项目列表",
+  "apiSearchDataPlaceholder": "请输入关键字搜索"
 }

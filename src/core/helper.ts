@@ -207,3 +207,22 @@ export const updateFileContent = async (filePath: string, data: object) => {
         console.log('------>updateFileContent error', error)
     }
 }
+
+// 根据ID数组获取名称数组的函数
+export const getNamesByIds = (tree: TreeNode, ids: number[]): string[] => {
+    const names: string[] = []; // 存储找到的名称
+    const idSet = new Set(ids); // 将ID数组转换为Set，便于快速查找
+
+    // 递归函数，用于遍历树状结构
+    function traverse(node: TreeNode): void {
+        if (idSet.has(node.id)) {
+            names.push(node.name); // 如果当前节点的ID在ID数组中，添加名称到结果数组
+        }
+        if (node.children) {
+            node.children.forEach(child => traverse(child)); // 递归遍历子节点
+        }
+    }
+
+    traverse(tree); // 从根节点开始遍历
+    return names; // 返回名称数组
+}

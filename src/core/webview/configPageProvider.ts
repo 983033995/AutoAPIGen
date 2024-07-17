@@ -3,7 +3,7 @@
  * @Description: 
  */
 import * as vscode from 'vscode'
-import { handleMessages } from './messenger'
+import { handleMessages } from '../messenger'
 
 export const generateConfigPage = (webview: vscode.Webview, context: vscode.ExtensionContext) => {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'dist/compiled', 'config.es.js'))

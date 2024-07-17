@@ -1,9 +1,9 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/BaseViewProvider.ts
+ * @FilePath: /AutoAPIGen/src/core/webview/BaseViewProvider.ts
  * @Description: 
  */
 import * as vscode from 'vscode'
-import { handleMessages } from './messenger'
+import { handleMessages } from '../messenger'
 
 export class BaseViewProvider implements vscode.WebviewViewProvider {
 	public static readonly viewType = 'base-view-sidebar'
