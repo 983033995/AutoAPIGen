@@ -4,6 +4,7 @@
 -->
 
 <script setup lang="ts">
+document.body.setAttribute('arco-theme', 'dark')
 const { t, locale } = useI18n()
 
 const loading = ref<boolean>(true)
@@ -39,6 +40,13 @@ const checkConfigRes = computed(() => {
   }
 })
 
+/**
+ * 根据ID数组获取树形数据中对应节点的名称列表
+ *
+ * @param treeData 树形数据结构数组
+ * @param ids 节点ID数组
+ * @returns 返回一个包含对应节点名称的字符串数组
+ */
 const getNamesByIds = (treeData: TreeNode[], ids: number[]): string[] => {
   let names: string[] = [];
   const idToName = new Map<number, string>();
@@ -78,33 +86,19 @@ const getNamesByIds = (treeData: TreeNode[], ids: number[]): string[] => {
   return names;
 }
 
-window.addEventListener('message', (event) => {
-  const message = event.data
-
-  console.log('----- getWorkspaceState ------', message)
-  switch (message.command) {
-    case 'getWorkspaceState':
-      configInfo.value = message.data
-      apiWorkSpace.value = getNamesByIds(configInfo.value?.configInfo.apiProjectList || [], configInfo.value?.configInfo.projectId || [])
-      loading.value = false
-      console.log('----- configInfo ------', configInfo.value, checkConfigRes.value)
-      break
-    case 'loadData':
-      loading.value = true
-      break
-    // case 'setCurrentFileExample':
-    //   lastFile.value = currentFile.value
-    //   currentFile.value = message.text
-    //   return
+console.log('------>sendTime', new Date().toLocaleTimeString())
+vscode.postMessage({
+  command: 'getWorkspaceState', data: {
+    init: false
   }
 })
-
-vscode.postMessage({ command: 'getWorkspaceState' })
 
 // 监听配置变化
 watch(() => configInfo.value?.theme, (value) => {
   if (value && value.kind === 2) {
     document.body.setAttribute('arco-theme', 'dark')
+  } else {
+    document.body.removeAttribute('arco-theme');
   }
 })
 
@@ -114,15 +108,37 @@ watch(() => configInfo.value?.theme, (value) => {
  * @returns 无返回值，通过向VS Code发送消息实现功能
  */
 const handlerDeployment = () => {
-  vscode.postMessage({ command: 'getWorkspaceState' })
+  // vscode.postMessage({ command: 'getWorkspaceState' })
   const setting = toRaw(configInfo.value?.configInfo) || {}
   vscode.postMessage({ command: 'openConfigPage', data: { title: t('configPageTitle'), configInfo: setting } })
 }
 
 const apiSearchData = ref('')
 
+const clearApiDetailChildren = (nodes: ApiTreeListResData[]): ApiTreeListResData[] => {
+  return nodes.map(node => {
+    // 深拷贝 children 以避免直接修改原始数组
+    const children = clearApiDetailChildren(node.children);
+
+    if (node.type === 'apiDetail') {
+      // 如果 type 是 'apiDetail'，则将 children 设置为空数组
+      return {
+        ...node,
+        children: []
+      };
+    } else {
+      // 否则，保留原有的 children
+      return {
+        ...node,
+        children
+      };
+    }
+  });
+}
+
 const apiTreeList = computed(() => {
-  return configInfo.value?.configInfo?.apiTreeList || []
+  const treeList = configInfo.value?.configInfo?.apiTreeList || []
+  return clearApiDetailChildren(treeList)
 })
 
 const expandedKeys = ref<string[]>([])
@@ -134,7 +150,7 @@ const searchApiTreeList = (keyword: string) => {
       if (item.name.toLowerCase().indexOf(keyword.toLowerCase()) > -1 || (item?.api && item.api.path.toLowerCase().indexOf(keyword.toLowerCase()) > -1)) {
         result.push({ ...item });
         expandedKeys.value.push(item.key);
-      } else if (item.children) {
+      } else if (item.children && item.type === 'apiDetailFolder') {
         const filterData = loop(item.children);
         if (filterData.length) {
           result.push({
@@ -228,77 +244,132 @@ const countAllChildren = (treeNode: ApiTreeListResData) => {
   // 返回当前节点及其子节点中apiDetail类型的总数
   return count;
 }
+
+const treeListLoading = ref(false)
+const updateTree = () => {
+  treeListLoading.value = true
+  vscode.postMessage({
+    command: 'getWorkspaceState', data: {
+      init: true,
+    }
+  })
+}
+
+const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
+  console.log('------>handleSelectOperate', type, data)
+  vscode.postMessage({
+    command: 'interfaceOperate', data: {
+      type,
+      itemType: data.type,
+      key: data.key,
+    }
+  })
+}
+
+window.addEventListener('message', (event) => {
+  const message = event.data
+
+  console.log('----- getWorkspaceState ------', message)
+  switch (message.command) {
+    case 'getWorkspaceState':
+      console.log('------>getTime', new Date().toLocaleTimeString())
+      configInfo.value = message.data
+      apiWorkSpace.value = getNamesByIds(configInfo.value?.configInfo.apiProjectList || [], configInfo.value?.configInfo.projectId || [])
+      loading.value = false
+      treeListLoading.value = false
+      console.log('----- configInfo ------', configInfo.value, checkConfigRes.value)
+      break
+    case 'loadData':
+      loading.value = true
+      break
+    // case 'setCurrentFileExample':
+    //   lastFile.value = currentFile.value
+    //   currentFile.value = message.text
+    //   return
+  }
+})
+
 </script>
 
 <template>
-  <div class="flex items-center flex-col mx-0 w-full h-full" v-loading="loading">
-    <div class="flex w-full items-center">
-      <div class="text-[16px]"><span class="icon-[logos--fastapi-icon]"></span></div>
-      <div class="flex-1 overflow-hidden mx-[8px]">
-        <a-breadcrumb :style="{ fontSize: `12px` }">
-          <a-breadcrumb-item v-for="(item, index) in apiWorkSpace" :key="index">{{ item }}</a-breadcrumb-item>
-          <template #item-render></template>
-        </a-breadcrumb>
-      </div>
-      <a-button type="text" class="w-[32px]" style="margin: 0; padding: 0;" @click="handlerDeployment" title="更新配置">
-        <span class="icon-[hugeicons--system-update-01] text-[18px]"></span>
-      </a-button>
-    </div>
-
-    <a-divider dashed margin="10px" />
-
-    <div v-if="checkConfigRes.success" class="w-full flex-1 overflow-hidden flex-col flex">
-      <div class="w-full flex justify-between">
-        <div class="flex-1">
-          <a-input-search class="flex-1" v-model="apiSearchData" allow-clear :placeholder="t('apiSearchDataPlaceholder')"
-            @input="changeSearchData" />
+  <a-spin class="mx-0 w-full h-full bg-[rgba(0,0,0,0)]" dot tip="配置加载中..." :loading="loading">
+    <div class="flex items-center flex-col mx-0 w-full h-full" v-show="!loading">
+      <div class="flex w-full items-center">
+        <div class="text-[16px]"><span class="icon-[logos--fastapi-icon]"></span></div>
+        <div class="flex-1 overflow-hidden mx-[8px]">
+          <a-breadcrumb :style="{ fontSize: `12px` }">
+            <a-breadcrumb-item v-for="(item, index) in apiWorkSpace" :key="index">{{ item }}</a-breadcrumb-item>
+            <template #item-render></template>
+          </a-breadcrumb>
         </div>
-        <div class="ml-2 w-32px">
-          <a-button type="primary">
-            <span class="icon-[tabler--refresh]"></span>
+        <a-tooltip :content="t('tip7')" mini position="lt">
+          <a-button type="text" class="w-[32px]" style="margin: 0; padding: 0;" @click="handlerDeployment">
+            <span class="icon-[hugeicons--system-update-01] text-[18px]"></span>
           </a-button>
-        </div>
+        </a-tooltip>
       </div>
 
-      <div class="w-full flex-1 overflow-y-auto">
-        <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
-          :expanded-keys="expandedKeys" @expand="onExpand">
-          <template #title="nodeData">
-            <div class="w-full flex group" :ref="(el: Element) => treeItemRef[nodeData.key.replace('.', '_')] = el">
-              <span v-if="nodeData.type === 'apiDetailFolder'">
-                <span class="icon-[noto--file-folder]"></span>
-              </span>
-              <span v-else :class="apiType[nodeData.api.method as keyof ApiTypeMap].class" class="text-lg font-bold"
-                :style="{ color: apiType[nodeData.api.method as keyof ApiTypeMap].color }"></span>
-              <div class="ml-2 flex-1 mr-2">{{ nodeData?.name }}<span v-if="nodeData.type === 'apiDetailFolder'"
-                  class="opacity-60 text-3 ml-[6px]">({{ countAllChildren(nodeData) }})</span></div>
-              <div class="hidden group-hover:block cursor-pointer w-8 h-5">
-                <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]">
-                  <span class="icon-[mdi--more-vert]"></span>
-                  <template #content>
-                    <a-doption>生成接口</a-doption>
-                    <a-doption>复制链接</a-doption>
-                  </template>
-                </a-dropdown>
-              </div>
+      <a-divider dashed margin="10px" />
+
+      <a-spin dot tip="数据更新中..." :loading="treeListLoading" class="w-full flex-1 overflow-hidden">
+        <div v-if="checkConfigRes.success" class="w-full h-full overflow-hidden flex-col flex">
+          <div class="w-full flex justify-between">
+            <div class="flex-1">
+              <a-input-search class="flex-1" v-model="apiSearchData" allow-clear
+                :placeholder="t('apiSearchDataPlaceholder')" @input="changeSearchData" />
             </div>
-          </template>
-        </a-tree>
-      </div>
+            <div class="ml-2 w-32px">
+              <a-tooltip :content="t('tip6')" mini position="lt">
+                <a-button type="primary" @click="updateTree">
+                  <span class="icon-[tabler--refresh]"></span>
+                </a-button>
+              </a-tooltip>
+            </div>
+          </div>
+  
+          <div class="w-full flex-1 overflow-y-auto">
+            <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
+              :expanded-keys="expandedKeys" @expand="onExpand">
+              <template #title="nodeData">
+                <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="(el: Element) => treeItemRef[nodeData.key.replace('.', '_')] = el">
+                  <span v-if="nodeData.type === 'apiDetailFolder'">
+                    <span class="icon-[noto--file-folder]"></span>
+                  </span>
+                  <span v-else :class="apiType[nodeData.api.method as keyof ApiTypeMap].class" class="text-lg font-bold"
+                    :style="{ color: apiType[nodeData.api.method as keyof ApiTypeMap].color }"></span>
+                  <div class="ml-2 flex-1 mr-2">
+                    {{ nodeData?.name }}
+                    <span v-if="nodeData.type === 'apiDetailFolder'" class="opacity-60 text-3 ml-[6px]">({{ countAllChildren(nodeData) }})</span>
+                  </div>
+                  <div class="cursor-pointer w-8 h-5">
+                    <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="(val: string) => handleSelectOperate(val, nodeData)">
+                      <span class="icon-[mdi--more-vert] hidden group-hover:block "></span>
+                      <template #content>
+                        <a-doption value="generate">{{ t('operate1') }}</a-doption>
+                        <a-doption value="copy">{{ t('operate2') }}</a-doption>
+                      </template>
+                    </a-dropdown>
+                  </div>
+                </div>
+              </template>
+            </a-tree>
+          </div>
+        </div>
+  
+        <div class="flex-1 flex flex-col items-center justify-center w-full overflow-y-auto" v-else>
+          <a-result status="404" class="mt-[-5rem]">
+            <template #title>
+              <h3 class="empty-tip">{{ checkConfigRes.message }}</h3>
+            </template>
+            <template #extra>
+              <a-space>
+                <a-button type='primary' size="small" class="rounded-lg" @click="handlerDeployment">{{ t('tip2')
+                }}</a-button>
+                <a-button type="outline" size="small" class="rounded-lg">{{ t('tip3') }}</a-button>
+              </a-space>
+            </template>
+          </a-result>
+        </div>
+      </a-spin>
     </div>
-
-    <div class="flex-1 flex flex-col items-center justify-center w-full overflow-y-auto" v-else>
-      <a-result status="404" class="mt-[-5rem]">
-        <template #title>
-          <h3 class="empty-tip">{{ checkConfigRes.message }}</h3>
-        </template>
-        <template #extra>
-          <a-space>
-            <a-button type='primary' size="small" class="rounded-lg" @click="handlerDeployment">{{ t('tip2') }}</a-button>
-            <a-button type="outline" size="small" class="rounded-lg">{{ t('tip3') }}</a-button>
-          </a-space>
-        </template>
-      </a-result>
-    </div>
-  </div>
-</template>
+</a-spin></template>

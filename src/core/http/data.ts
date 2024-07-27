@@ -1,5 +1,5 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/data.ts
+ * @FilePath: /AutoAPIGen/src/core/http/data.ts
  * @Description: 
  */
 import * as vscode from 'vscode'
@@ -81,10 +81,11 @@ export const getApiTreeList = async (projectId: number) => {
     }
 }
 
-export const initPageData = async () => {
+export const getDataSchemas = async (projectId: number) => {
     try {
-        // const stateApiTreeList = vscode.workspace.ge
-    } catch (error) {
-        
+        const res = await http.get(`/projects/${projectId}/data-schemas?locale=zh-CN`)
+        return res.data.data
+    } catch (error: any) {
+        vscode.window.showErrorMessage(`获取数据模型失败: ${error?.message || '未知错误'}`)
     }
 }

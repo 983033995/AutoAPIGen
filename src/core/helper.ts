@@ -3,6 +3,7 @@
  * @Description: 
  */
 import * as vscode from 'vscode'
+import { pinyin } from "pinyin-pro"
 const fs = require('fs-extra')
 const path = require('path');
 
@@ -159,50 +160,50 @@ export const updateFileContent = async (filePath: string, data: object) => {
     console.log('----->updateFileContent', filePath, data);
     try {
         // 获取工作区的根路径
-    const workspaceFolders = vscode.workspace.workspaceFolders;
-    if (!workspaceFolders) {
-        vscode.window.showErrorMessage('No workspace is open.');
-        return;
-    }
-    const workspacePath = workspaceFolders[0].uri.fsPath;
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            vscode.window.showErrorMessage('No workspace is open.');
+            return;
+        }
+        const workspacePath = workspaceFolders[0].uri.fsPath;
 
-    // 构造完整的文件路径
-    const fullFilePath = path.join(workspacePath, filePath);
+        // 构造完整的文件路径
+        const fullFilePath = path.join(workspacePath, filePath);
 
-    // 检查文件夹是否存在，如果不存在则创建
-    const dirName = path.dirname(fullFilePath);
-    if (!fs.existsSync(dirName)) {
-        fs.mkdirSync(dirName, { recursive: true });
-    }
+        // 检查文件夹是否存在，如果不存在则创建
+        const dirName = path.dirname(fullFilePath);
+        if (!fs.existsSync(dirName)) {
+            fs.mkdirSync(dirName, { recursive: true });
+        }
 
-    let fileData = {};
+        let fileData = {};
 
-    // 检查文件是否存在，如果存在则读取内容
-    if (fs.existsSync(fullFilePath)) {
-        const fileContent = fs.readFileSync(fullFilePath, 'utf8');
-        if (fileContent.trim() === '') {
-            fileData = {}
-        } else {
-            try {
-                fileData = JSON.parse(fileContent); // 尝试解析JSON
-            } catch (e) {
-                if (e instanceof SyntaxError && e.message.includes('Unexpected end of JSON input')) {
-                    fileData = {}; // 如果解析失败且错误是“Unexpected end of JSON input”，则初始化一个空对象
-                    console.warn(`File ${fullFilePath} contains invalid JSON. It will be treated as an empty object.`);
-                } else {
-                    throw e; // 如果是其他类型的错误，则重新抛出异常
+        // 检查文件是否存在，如果存在则读取内容
+        if (fs.existsSync(fullFilePath)) {
+            const fileContent = fs.readFileSync(fullFilePath, 'utf8');
+            if (fileContent.trim() === '') {
+                fileData = {}
+            } else {
+                try {
+                    fileData = JSON.parse(fileContent); // 尝试解析JSON
+                } catch (e) {
+                    if (e instanceof SyntaxError && e.message.includes('Unexpected end of JSON input')) {
+                        fileData = {}; // 如果解析失败且错误是“Unexpected end of JSON input”，则初始化一个空对象
+                        console.warn(`File ${fullFilePath} contains invalid JSON. It will be treated as an empty object.`);
+                    } else {
+                        throw e; // 如果是其他类型的错误，则重新抛出异常
+                    }
                 }
             }
         }
-    }
 
-    // 合并数据
-    const updatedFileData = { ...fileData, ...data };
+        // 合并数据
+        const updatedFileData = { ...fileData, ...data };
 
-    // 写入更新后的数据到文件
-    fs.writeFileSync(fullFilePath, JSON.stringify(updatedFileData, null, 4));
+        // 写入更新后的数据到文件
+        fs.writeFileSync(fullFilePath, JSON.stringify(updatedFileData, null, 4));
 
-    vscode.window.showInformationMessage(`${filePath} has been updated.`);
+        vscode.window.showInformationMessage(`${filePath} has been updated.`);
     } catch (error) {
         console.log('------>updateFileContent error', error)
     }
@@ -216,7 +217,7 @@ export const getNamesByIds = (tree: TreeNode, ids: number[]): string[] => {
     // 递归函数，用于遍历树状结构
     function traverse(node: TreeNode): void {
         if (idSet.has(node.id)) {
-            names.push(node.name); // 如果当前节点的ID在ID数组中，添加名称到结果数组
+            names.push(cnToPinyin(node.name)); // 如果当前节点的ID在ID数组中，添加名称到结果数组
         }
         if (node.children) {
             node.children.forEach(child => traverse(child)); // 递归遍历子节点
@@ -226,3 +227,153 @@ export const getNamesByIds = (tree: TreeNode, ids: number[]): string[] => {
     traverse(tree); // 从根节点开始遍历
     return names; // 返回名称数组
 }
+
+/**
+ * vscode.window.withProgress 的调用函数
+ * @param options - 进度条配置选项
+ * @param task - 执行的任务函数
+ */
+export async function withProgressWrapper(title: string, task: (progress: vscode.Progress<{ message?: string; increment?: number }>) => Promise<void>) {
+    await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title,
+        cancellable: false,
+    }, task);
+}
+
+/**
+ * 在给定的树形结构中查找包含目标键值的子树路径
+ *
+ * @param tree ApiTreeListResData 类型的数组，表示树形结构
+ * @param targetKey 目标键值
+ * @returns 返回 ApiTreeListResData 类型的对象，表示找到的子树路径，若未找到则返回 null
+ */
+export function findSubtreePath(tree: ApiTreeListResData[], targetKey: string): ApiTreeListResData | null {
+    function dfs(node: ApiTreeListResData): ApiTreeListResData | null {
+        if (node.key === targetKey) {
+            return { ...node };
+        }
+
+        for (const child of node.children) {
+            const result = dfs(child);
+            if (result) {
+                return { ...node, children: [result] };
+            }
+        }
+
+        return null;
+    }
+
+    for (const root of tree) {
+        const result = dfs(root);
+        if (result) {
+            return result;
+        }
+    }
+
+    return null;
+}
+
+/** 首字母大写 */
+export const firstToLocaleUpperCase = (str: string | null | undefined) => {
+    if (!str) return '';
+    return str.charAt(0).toUpperCase() + str.slice(1);
+};
+
+/** 中文转拼音 */
+export const cnToPinyin = (cn: string) => {
+    let pyArr = pinyin(cn, { toneType: 'none', type: 'array' });
+    let isFirstOne = true;
+    let pyArr2 = pyArr.map((item, index) => {
+        if (isFirstOne) {
+            isFirstOne = false;
+            return item;
+        }
+        if (item === '/') {
+            isFirstOne = true;
+        }
+        return firstToLocaleUpperCase(item);
+    });
+    return pyArr2.join('');
+};
+
+
+export function getPathsAndApiDetails(tree: ApiTreeListResData | null, key: string, rootName: string): PathApiDetail[] {
+    if (!tree) {
+        return [];
+    }
+
+    const results: PathApiDetail[] = [];
+
+    function dfs(node: ApiTreeListResData, currentPath: string[], keyArr: string[], targetKey: string): boolean {
+        const nodeName = cnToPinyin(node.name);
+        if (node.type === "apiDetailFolder") {
+            currentPath.push(nodeName);
+            keyArr.push(node.key);
+        }
+
+        if (node.key === targetKey) {
+            if (node.type === "apiDetailFolder") {
+                collectLastApiDetailsFolder(node, currentPath.slice(), keyArr.slice());
+            } else if (node.type === "apiDetail" && node.api) {
+                results.push({
+                    pathArr: currentPath,
+                    api: [node.api],
+                    keyArr: keyArr,
+                    path: currentPath.join('/')
+                });
+            }
+            return true;
+        }
+
+        for (const child of node.children) {
+            if (dfs(child, currentPath, keyArr, targetKey)) {
+                return true;
+            }
+        }
+
+        if (node.type === "apiDetailFolder") {
+            currentPath.pop();
+            keyArr.pop();
+        }
+
+        return false;
+    }
+
+    function collectLastApiDetailsFolder(folderNode: ApiTreeListResData, basePath: string[], baseKeyArr: string[]) {
+        let isLastFolder = true;
+        const apis: apiDetailItem[] = [];
+
+        function collectApis(node: ApiTreeListResData) {
+            if (node.type === "apiDetail" && node.api) {
+                apis.push(node.api);
+            } else {
+                node.children.forEach(collectApis);
+            }
+        }
+
+        // 检查子节点是否有 apiDetailFolder
+        for (const child of folderNode.children) {
+            if (child.type === "apiDetailFolder") {
+                isLastFolder = false;
+                collectLastApiDetailsFolder(child, [...basePath, cnToPinyin(child.name)], [...baseKeyArr, child.key]);
+            }
+        }
+
+        if (isLastFolder) {
+            collectApis(folderNode);
+            if (apis.length > 0) {
+                results.push({
+                    pathArr: basePath,
+                    api: apis,
+                    keyArr: baseKeyArr,
+                    path: basePath.join('/')
+                });
+            }
+        }
+    }
+    
+    dfs(tree, [rootName], [], key);
+    return results;
+}
+

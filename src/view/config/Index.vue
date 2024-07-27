@@ -75,16 +75,21 @@ function buildPathArray(pathStr: string): string[] {
     return pathArray;
 }
 
+const projectLoading = ref<boolean>(false)
 // 获取项目列表
 const getProjectList = () => {
+    projectLoading.value = true
     if (!formConfig.value.Authorization) {
         formRef.value && formRef.value?.validateField('Authorization')
         return
     }
-    vscode.postMessage({ command: 'getProjectList', data: {
-        Authorization: formConfig.value.Authorization,
-        appName: formConfig.value?.appName
-    } })
+    console.log('----->formConfig.value.Authorization', formConfig.value.Authorization)
+    vscode.postMessage({
+        command: 'getProjectList', data: {
+            Authorization: formConfig.value.Authorization,
+            appName: formConfig.value?.appName
+        }
+    })
 }
 
 window.addEventListener('message', (event) => {
@@ -120,12 +125,16 @@ window.addEventListener('message', (event) => {
             break
         case 'getProjectList':
             console.log('-----getProjectList', message.data)
-            projectList.value = message.data
+            projectList.value = message.data || []
+            if (!projectList.value.length) {
+                formConfig.value.projectId = []
+            }
+            projectLoading.value = false
             break
     }
 })
 
-vscode.postMessage({ command: 'getWorkspaceState' })
+vscode.postMessage({ command: 'getWorkspaceState', data: { init: true } })
 vscode.postMessage({ command: 'getFolders' })
 
 watch(() => configInfo.value?.theme, (value) => {
@@ -158,7 +167,8 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
         <a-divider dashed margin="2px" />
 
         <div class="w-full flex-1 overflow-hidden overflow-y-auto">
-            <a-form ref="formRef" :model="formConfig" @submit="handleSubmit" class="p-[20px]" :rules="formRules" :feedback="true" auto-label-width>
+            <a-form ref="formRef" :model="formConfig" @submit="handleSubmit" class="p-[20px]" :rules="formRules"
+                :feedback="true" auto-label-width>
                 <a-form-item :label="t('tip4')" class="relative">
                     <a-input v-model="workspacePath" />
                     <div class="absolute inset-0 z-30"></div>
@@ -177,9 +187,14 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                         allow-search :field-names="{ label: 'name', value: 'key' }" check-strictly />
                 </a-form-item>
                 <a-form-item field="projectId" :label="t('configInfoFrom.projectId')">
-                    <a-cascader v-model="formConfig.projectId" :options="projectList" placeholder="Please select ..." path-mode
-                        allow-search :field-names="{ label: 'name', value: 'id' }" check-strictly />
-                    <a-button type="outline" @click="getProjectList" class="w-auto">{{ t('tip5') }}</a-button>
+                    <a-spin :loading="projectLoading" class="w-full">
+                        <div class="w-full flex justify-between">
+                            <a-cascader v-model="formConfig.projectId" :options="projectList"
+                                placeholder="Please select ..." path-mode allow-search
+                                :field-names="{ label: 'name', value: 'id' }" check-strictly />
+                            <a-button type="outline" @click="getProjectList" class="w-auto">{{ t('tip5') }}</a-button>
+                        </div>
+                    </a-spin>
                 </a-form-item>
                 <a-form-item field="model" tooltip="Please enter username" :label="t('configInfoFrom.model')">
                     <a-select v-model="formConfig.model" placeholder="Please select ...">
@@ -226,20 +241,20 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                             :auto-size="{
                                 minRows: 3,
                                 maxRows: 8
-                                                          }" />
+                            }" />
                     </a-form-item>
-                <a-form-item field="patch" :label="t('configInfoFrom.patch')">
-                    <a-textarea v-model="formConfig.patch"
-                        placeholder="This is the contents of the textarea. This is the contents of the textarea. This is the contents of the textarea."
-                        :auto-size="{
-                            minRows:3,
-                            maxRows:8
-                          }" />
-                </a-form-item>
-            </div>
-            <div class="w-full h-10 flex justify-center">
-                <a-button html-type="submit" type="primary" class="w-20">{{ t('save' )}}</a-button>
-            </div>
+                    <a-form-item field="patch" :label="t('configInfoFrom.patch')">
+                        <a-textarea v-model="formConfig.patch"
+                            placeholder="This is the contents of the textarea. This is the contents of the textarea. This is the contents of the textarea."
+                            :auto-size="{
+                                minRows: 3,
+                                maxRows: 8
+                            }" />
+                    </a-form-item>
+                </div>
+                <div class="w-full h-10 flex justify-center">
+                    <a-button html-type="submit" type="primary" class="w-20">{{ t('save' )}}</a-button>
+                </div>
         </a-form>
     </div>
 </div></template>

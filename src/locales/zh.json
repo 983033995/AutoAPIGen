@@ -23,5 +23,9 @@
   },
   "save": "保存",
   "tip5": "获取项目列表",
-  "apiSearchDataPlaceholder": "请输入关键字搜索"
+  "apiSearchDataPlaceholder": "请输入关键字搜索",
+  "tip6": "更新接口",
+  "tip7": "更新配置",
+  "operate1": "生成接口",
+  "operate2": "复制接口方法"
 }

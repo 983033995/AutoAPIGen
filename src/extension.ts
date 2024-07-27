@@ -8,6 +8,7 @@ import { generateConfigPage } from './core/webview/configPageProvider'
 import { initializeWorkspaceStateUtil } from './core/workspace/stateManager'
 
 export function activate(context: vscode.ExtensionContext) {
+    console.log('------>startTime', new Date().toLocaleTimeString())
 	const workspaceFolders = vscode.workspace.workspaceFolders || []
 	initializeWorkspaceStateUtil(context)
 

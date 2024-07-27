@@ -32,6 +32,9 @@ importers:
       fs-extra:
         specifier: ^11.2.0
         version: 11.2.0
+      pinyin-pro:
+        specifier: ^3.23.1
+        version: 3.23.1
       vue:
         specifier: ^3.2.45
         version: 3.4.31(typescript@4.9.5)
@@ -426,16 +429,16 @@ packages:
     resolution: {integrity: sha512-+bcQRkJO9pcX8d0gel9ZNfrzU22sZFSA0WVhfXrf5jdJOS24a+Bp8pozuS9sBI9Hk/tGz83pgKfmqcn/Ci7/8w==}
     engines: {node: '>= 16'}
 
-  '@intlify/message-compiler@10.0.0-beta.4':
-    resolution: {integrity: sha512-jMuRHSgUYJ6gPoDVo5AbGb89l6Ha4VLiBfr4W90ore/EKKAAH4j9a9a5fR5r086WHGc8kOiPRKRVnH6X+HcT2w==}
+  '@intlify/message-compiler@10.0.0-beta.5':
+    resolution: {integrity: sha512-hLLchnM1dmtSEruerkzvU9vePsLqBXz3RU85SCx/Vd12fFQiymP+/5Rn9MJ8MyfLmIOLDEx4PRh+/GkIQP6oog==}
     engines: {node: '>= 16'}
 
   '@intlify/message-compiler@9.13.1':
     resolution: {integrity: sha512-SKsVa4ajYGBVm7sHMXd5qX70O2XXjm55zdZB3VeMFCvQyvLew/dLvq3MqnaIsTMF1VkkOb9Ttr6tHcMlyPDL9w==}
     engines: {node: '>= 16'}
 
-  '@intlify/shared@10.0.0-beta.4':
-    resolution: {integrity: sha512-DBNuWRMmVRXDGb/4eJnMMT52yXg+LTM3No5xybvN4CCnrelnt76AagwmgsyRQybopThrqUk0cK/2zAmeIaukyA==}
+  '@intlify/shared@10.0.0-beta.5':
+    resolution: {integrity: sha512-g9bq5Y1bOcC9qxtNk4UWtF3sXm6Wh0fGISb7vD5aLyF7yQv7ZFjxQjJzBP2GqG/9+PAGYutqjP1GGadNqFtyAQ==}
     engines: {node: '>= 16'}
 
   '@intlify/shared@9.13.1':
@@ -1961,6 +1964,9 @@ packages:
     resolution: {integrity: sha512-udgsAY+fTnvv7kI7aaxbqwWNb0AHiB0qBO89PZKPkoTmGOgdbrHDKD+0B2X4uTfJ/FT1R09r9gTsjUjNJotuog==}
     engines: {node: '>=0.10.0'}
 
+  pinyin-pro@3.23.1:
+    resolution: {integrity: sha512-fA345e5Zj+oAemjPKN9BpbTToUrq3J6ZVKEXpiCNNftFQahr4cKsBNnpGWR154WSOP3PgqlsaNgKklD8FlZvSw==}
+
   pirates@4.0.6:
     resolution: {integrity: sha512-saLsH7WeYYPiD25LDuLRRY/i+6HaPYr6G1OUlN39otzkSTxKnubR9RTxS3/Kk50s1g2JTgFwWQDQyplC5/SHZg==}
     engines: {node: '>= 6'}
@@ -2898,8 +2904,8 @@ snapshots:
 
   '@intlify/bundle-utils@4.0.0(vue-i18n@9.13.1(vue@3.4.31(typescript@4.9.5)))':
     dependencies:
-      '@intlify/message-compiler': 10.0.0-beta.4
-      '@intlify/shared': 10.0.0-beta.4
+      '@intlify/message-compiler': 10.0.0-beta.5
+      '@intlify/shared': 10.0.0-beta.5
       jsonc-eslint-parser: 1.4.1
       source-map: 0.6.1
       yaml-eslint-parser: 0.3.2
@@ -2911,9 +2917,9 @@ snapshots:
       '@intlify/message-compiler': 9.13.1
       '@intlify/shared': 9.13.1
 
-  '@intlify/message-compiler@10.0.0-beta.4':
+  '@intlify/message-compiler@10.0.0-beta.5':
     dependencies:
-      '@intlify/shared': 10.0.0-beta.4
+      '@intlify/shared': 10.0.0-beta.5
       source-map-js: 1.2.0
 
   '@intlify/message-compiler@9.13.1':
@@ -2921,14 +2927,14 @@ snapshots:
       '@intlify/shared': 9.13.1
       source-map-js: 1.2.0
 
-  '@intlify/shared@10.0.0-beta.4': {}
+  '@intlify/shared@10.0.0-beta.5': {}
 
   '@intlify/shared@9.13.1': {}
 
   '@intlify/unplugin-vue-i18n@0.8.2(vue-i18n@9.13.1(vue@3.4.31(typescript@4.9.5)))':
     dependencies:
       '@intlify/bundle-utils': 4.0.0(vue-i18n@9.13.1(vue@3.4.31(typescript@4.9.5)))
-      '@intlify/shared': 10.0.0-beta.4
+      '@intlify/shared': 10.0.0-beta.5
       '@rollup/pluginutils': 4.2.1
       '@vue/compiler-sfc': 3.4.31
       debug: 4.3.5
@@ -4570,6 +4576,8 @@ snapshots:
   picomatch@2.3.1: {}
 
   pify@2.3.0: {}
+
+  pinyin-pro@3.23.1: {}
 
   pirates@4.0.6: {}
 

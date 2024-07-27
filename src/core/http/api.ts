@@ -1,5 +1,5 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/api.ts
+ * @FilePath: /AutoAPIGen/src/core/http/api.ts
  * @Description: 
  */
 import axios from 'axios'
@@ -78,7 +78,7 @@ const getModelOptions = (config: GetModelOptionsParams) => {
 
 export const api = (config: GetModelOptionsParams) => {
     const { baseURL, headers } = getModelOptions(config)
-    return axios.create({
+    const instance = axios.create({
         baseURL,
         timeout: 30 * 1000,
         headers: {
@@ -86,4 +86,20 @@ export const api = (config: GetModelOptionsParams) => {
             ...(config?.headers || {})
         }
     })
+
+    // 添加请求拦截器
+    instance.interceptors.response.use(
+        function (response) {
+            // 2xx 范围内的状态码都会触发该函数。
+            // 对响应数据做点什么
+            console.log('----->req', response)
+            return response;
+          }, function (error) {
+            // 超出 2xx 范围的状态码都会触发该函数。
+            // 对响应错误做点什么
+            console.log('----->req--err', error)
+            return Promise.reject(error);
+          }
+    )
+    return instance
 }
