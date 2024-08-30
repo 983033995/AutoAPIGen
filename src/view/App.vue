@@ -298,7 +298,7 @@ window.addEventListener('message', (event) => {
         <div class="text-[16px]"><span class="icon-[logos--fastapi-icon]"></span></div>
         <div class="flex-1 overflow-hidden mx-[8px]">
           <a-breadcrumb :style="{ fontSize: `12px` }">
-            <a-breadcrumb-item v-for="(item, index) in apiWorkSpace" :key="index">{{ item }}</a-breadcrumb-item>
+            <a-breadcrumb-item v-for="(item, index) in apiWorkSpace.length ? apiWorkSpace : ['AutoApiGen']" :key="index">{{ item }}</a-breadcrumb-item>
             <template #item-render></template>
           </a-breadcrumb>
         </div>
@@ -356,7 +356,7 @@ window.addEventListener('message', (event) => {
           </div>
         </div>
   
-        <div class="flex-1 flex flex-col items-center justify-center w-full overflow-y-auto" v-else>
+        <div class="h-full flex flex-col items-center justify-center w-full overflow-y-auto" v-else>
           <a-result status="404" class="mt-[-5rem]">
             <template #title>
               <h3 class="empty-tip">{{ checkConfigRes.message }}</h3>

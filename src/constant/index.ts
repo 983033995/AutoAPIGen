@@ -27,12 +27,8 @@ export const API_MODEL = [
         value: 'axios'
     },
     {
-        label: 'swrv',
-        value: 'swrv'
-    },
-    {
-        label: 'VueHook Plus',
-        value: 'VueHook Plus'
+        label: 'VueHookPlus',
+        value: 'VueHookPlus'
     },
     {
         label: 'wx',

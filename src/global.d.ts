@@ -37,12 +37,16 @@ interface ConfigurationInformation {
 
 type generateConfigPageParams = (currentPanel: vscode.WebviewPanel | undefined, title: string, configInfo: ProjectConfigInfo) => void
 
+type apiModelType = 'vueUse' | 'axios' | 'VueHookPlus' | 'wx' | 'custom'
+
 interface ConfigFromModel {
   appName: AppCollections
   Authorization: string
-  path: string[]
+  path: string
   projectId: number[]
-  model: string
+  model: apiModelType
+  prettierSetting: string
+  axiosPath?: string
   head?: string
   get?: string
   post?: string
@@ -236,6 +240,33 @@ interface ApiDetailResponse {
   data: ApiDetailResponseData;
 }
 
+interface ApiDetailParametersQuery {
+  id: string;
+  name: string;
+  required: boolean;
+  description: string;
+  example: string | number;
+  type: string;
+  enable: boolean;
+  schema?: {
+    type?: string;
+    [key: string]: any
+  }
+}
+interface ApiDetailParameters {
+  query: ApiDetailParametersQuery[];
+  path: ApiDetailParametersQuery[]; // Replace with specific type if needed
+  cookie: any[]; // Replace with specific type if needed
+  header: {
+    required: boolean;
+    description: string;
+    type: string;
+    id: string;
+    example: string;
+    enable: boolean;
+    name: string;
+  }[];
+}
 interface ApiDetailListData {
   id: number;
   name: string;
@@ -256,28 +287,7 @@ interface ApiDetailListData {
     type: string;
     parameters: any[]; // Replace with specific type if needed
   };
-  parameters: {
-    query: {
-      id: string;
-      name: string;
-      required: boolean;
-      description: string;
-      example: string | number;
-      type: string;
-      enable: boolean;
-    }[];
-    path: any[]; // Replace with specific type if needed
-    cookie: any[]; // Replace with specific type if needed
-    header: {
-      required: boolean;
-      description: string;
-      type: string;
-      id: string;
-      example: string;
-      enable: boolean;
-      name: string;
-    }[];
-  };
+  parameters: ApiDetailParameters
   commonParameters: {
     query: any[]; // Replace with specific type if needed
     body: any[]; // Replace with specific type if needed
@@ -373,4 +383,14 @@ interface ApiDataSchemasItem {
   editorId: number;
   createdAt: string;
   updatedAt: string;
+}
+
+interface ApiDetailGather extends apiDetailItem {
+  apiFunctionName: string
+  useApiFunctionName: string
+  apiFunctionPath: vscode.Uri
+  apiFunctionContext: string
+  apiInterfaceContext: string
+  interfaceQueryName: string
+  interfaceResName: string
 }

@@ -97,7 +97,7 @@ const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionConte
 							const filePathList = getPathsAndApiDetails(treeNode, key, configInfo.appName)
 							console.log('----->treeNode', treeNode)
 							console.log('----->filePathList', filePathList)
-							await generateFile(filePathList)
+							await generateFile(filePathList, itemType)
 							await withProgressWrapper('AutoApiGen', async (progress) => {
 								progress.report({
 									message: '正在生成文件...',

@@ -203,7 +203,7 @@ export const updateFileContent = async (filePath: string, data: object) => {
         // 写入更新后的数据到文件
         fs.writeFileSync(fullFilePath, JSON.stringify(updatedFileData, null, 4));
 
-        vscode.window.showInformationMessage(`${filePath} has been updated.`);
+        vscode.window.showInformationMessage(`${filePath} 更新成功.`);
     } catch (error) {
         console.log('------>updateFileContent error', error)
     }
@@ -341,38 +341,35 @@ export function getPathsAndApiDetails(tree: ApiTreeListResData | null, key: stri
     }
 
     function collectLastApiDetailsFolder(folderNode: ApiTreeListResData, basePath: string[], baseKeyArr: string[]) {
-        let isLastFolder = true;
         const apis: apiDetailItem[] = [];
 
         function collectApis(node: ApiTreeListResData) {
             if (node.type === "apiDetail" && node.api) {
                 apis.push(node.api);
-            } else {
+            } else if (node.type === "apiDetailFolder") {
                 node.children.forEach(collectApis);
             }
         }
 
-        // 检查子节点是否有 apiDetailFolder
-        for (const child of folderNode.children) {
-            if (child.type === "apiDetailFolder") {
-                isLastFolder = false;
+        // 收集所有直接子节点中的 apiDetail
+        folderNode.children.forEach(child => {
+            if (child.type === "apiDetail" && child.api) {
+                apis.push(child.api);
+            } else if (child.type === "apiDetailFolder") {
                 collectLastApiDetailsFolder(child, [...basePath, cnToPinyin(child.name)], [...baseKeyArr, child.key]);
             }
-        }
+        });
 
-        if (isLastFolder) {
-            collectApis(folderNode);
-            if (apis.length > 0) {
-                results.push({
-                    pathArr: basePath,
-                    api: apis,
-                    keyArr: baseKeyArr,
-                    path: basePath.join('/')
-                });
-            }
+        if (apis.length > 0) {
+            results.push({
+                pathArr: basePath,
+                api: apis,
+                keyArr: baseKeyArr,
+                path: basePath.join('/')
+            });
         }
     }
-    
+
     dfs(tree, [rootName], [], key);
     return results;
 }

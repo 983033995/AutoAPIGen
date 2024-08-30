@@ -19,7 +19,9 @@
     "put": "Put Request Configuration",
     "delete": "Delete Request Configuration",
     "patch": "Patch Request Configuration",
-    "model": "interface model"
+    "model": "interface model",
+    "prettierSetting": "prettier setting",
+    "axiosPath": "axios path"
   },
   "save": "save",
   "tip5": "obtain list",

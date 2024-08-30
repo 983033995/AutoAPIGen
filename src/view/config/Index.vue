@@ -14,7 +14,7 @@ const formRef = ref()
 const configInfo = ref<ConfigurationInformation>()
 
 const defaultModel = {
-    appName: 'apifox',
+    appName: 'apifox' as AppCollections,
     Authorization: '',
     path: [],
     projectId: [],
@@ -24,11 +24,13 @@ const defaultModel = {
     put: '',
     delete: '',
     patch: '',
-    model: ''
+    model: '' as apiModelType,
+    prettierSetting: '{\n    "semi": false, \n    "singleQuote": true,\n    "parser": "typescript"\n}',
+    axiosPath: '',
 }
 
 // 表单配置信息
-const formConfig = ref<ConfigFromModel>(defaultModel)
+const formConfig = ref<Omit<ConfigFromModel, 'path'> & { path: string[] }>(defaultModel)
 
 const pathDefaultValue = ref<string[][]>([])
 
@@ -110,7 +112,7 @@ window.addEventListener('message', (event) => {
                         formConfig.value.projectId = initialConfiguration.projectId as unknown as number[]
                     } else {
                         if (key !== 'path') {
-                            formConfig.value[key] = initialConfiguration[key] as (string | number | AppCollections)
+                            formConfig.value[key] = initialConfiguration[key] as string | number | AppCollections
                         }
                     }
                 }
@@ -202,6 +204,16 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                             :label="item.label"></a-option>
                     </a-select>
                 </a-form-item>
+                <a-form-item field="axiosPath" tooltip="输入axios引用路径（使用@等别名配置）" :label="t('configInfoFrom.axiosPath')">
+                    <a-input v-model="formConfig.axiosPath" />
+                </a-form-item>
+                <a-form-item field="prettierSetting" tooltip="Please enter prettier setting"
+                    :label="t('configInfoFrom.prettierSetting')">
+                    <a-textarea type="textarea" :auto-size="{
+                        minRows: 3,
+                        maxRows: 8
+                    }" v-model="formConfig.prettierSetting"></a-textarea>
+                </a-form-item>
                 <div v-if="customModel">
                     <a-form-item field="head" :label="t('configInfoFrom.head')">
                         <a-textarea v-model="formConfig.head"
@@ -253,8 +265,9 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                     </a-form-item>
                 </div>
                 <div class="w-full h-10 flex justify-center">
-                    <a-button html-type="submit" type="primary" class="w-20">{{ t('save' )}}</a-button>
+                    <a-button html-type="submit" type="primary" class="w-20">{{ t('save') }}</a-button>
                 </div>
-        </a-form>
+            </a-form>
+        </div>
     </div>
-</div></template>
+</template>
