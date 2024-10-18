@@ -21,6 +21,7 @@ interface VitestConfigExport extends UserConfig {
 }
 
 module.exports = defineConfig({
+	publicDir: 'src/assets/img',
 	resolve: {
 		alias: {
 			'@/': `${path.resolve(__dirname, 'src')}/`,
@@ -67,7 +68,7 @@ module.exports = defineConfig({
 			input: {
 				index: './src/view/index.ts',
 				config: './src/view/config/index.ts'
-			}
+			},
 		},
 		emptyOutDir: false,
 		outDir: 'dist/compiled'

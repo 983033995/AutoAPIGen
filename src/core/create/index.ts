@@ -14,6 +14,8 @@ const apiTypeCollection = ['get', 'delete', 'head', 'options']
  * @returns 转换后的大驼峰形式的字符串
  */
 function convertPathToPascalCase(path: string): string {
+  path = path.replace(/^https?:\/\/[^\/]+/, '')
+
   // 分割路径并提取最后三个部分
   const parts = path.split('/').filter(Boolean);
   const lastThreeParts = parts.slice(-3);
@@ -27,7 +29,7 @@ function convertPathToPascalCase(path: string): string {
     cleanedPart = cleanedPart.replace(/[-_]/g, '');
 
     // 转换为大驼峰
-    return cleanedPart.charAt(0).toUpperCase() + cleanedPart.slice(1);
+    return cleanedPart.charAt(0).toUpperCase() + cleanedPart.slice(1).toUpperCase();
   });
 
   // 合并成一个字符串
@@ -195,12 +197,12 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
   const pathParams = apiDetailItem?.parameters?.path || [] // 拼接在url路径上的动态参数
   const queryParams = apiDetailItem?.parameters?.query || [] // 正常的query参数
   const apiDetailParams: ApiDetailParametersQuery[] = [...pathParams, ...queryParams]
-  console.log('---->apiDetailItem', apiDetailItem, apiDetailParams)
   const requestBody = apiDetailItem?.requestBody?.parameters || []
   const axiosAlias = extractVariableName(axiosQuote)
   const apiPath = convertToTemplateString(apiDetailItem.path || '', pathParams)
   const apiMethod = apiDetailItem.method || 'get'
   const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || []
+  console.log('---->apiDetailItem', apiDetailItem, apiDetailParams, apiDataSchemas)
   console.log('----->axiosAlias', axiosAlias, axiosQuote)
 
   const exportInterfaceQuery = queryParams.length ? `
@@ -213,7 +215,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
             ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
           `
-  }, '')}
+  }, '')} [key: string]: any
       }
       ` : ''
 
@@ -225,9 +227,9 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}Body {
         ${requestBody.reduce((acc, cur) => {
           return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-                  ${cur.name}${cur.required ? '' : '?'}: ${cur.type}
+                  ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
                 `
-        }, '')}
+        }, '')} [key: string]: any
       }
       ` : ''
 
@@ -239,9 +241,9 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}PathQuery {
         ${pathParams.reduce((acc, cur) => {
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${cur.name}${cur.required ? '' : '?'}: ${cur.type}
+            ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
           `
-  }, '')}
+  }, '')} [key: string]: any
       }
       ` : ''
 
@@ -332,13 +334,14 @@ function buildParameters(parameters: ApiDetailParametersQuery, apiDataSchemas: A
     'array': (): string => {
       if (schema && schema?.items) {
         const resType: keyof typeof typeMap = schema.items?.format || schema.items?.type || 'string'
-        return `Array<${typeMap[resType] ? typeMap[resType]() : 'any'}>`
+        return `${typeMap[resType] ? typeMap[resType]() : 'any'}[]`
       }
-      return 'Array<any>'
+      return 'any[]'
     },
     'file': () => 'File | Blob | ArrayBuffer | Uint8Array',
   }
-  return 'string'
+  type TypeMapKey = keyof typeof typeMap
+  return schema?.type ? typeMap[schema.type as TypeMapKey]() : parameters.type ? typeMap[parameters.type as TypeMapKey]() || 'any' : 'string'
 }
 
 /**

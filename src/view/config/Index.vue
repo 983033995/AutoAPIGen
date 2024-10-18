@@ -193,7 +193,7 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                         <div class="w-full flex justify-between">
                             <a-cascader v-model="formConfig.projectId" :options="projectList"
                                 placeholder="Please select ..." path-mode allow-search
-                                :field-names="{ label: 'name', value: 'id' }" check-strictly />
+                                :field-names="{ label: 'name', value: 'id' }" />
                             <a-button type="outline" @click="getProjectList" class="w-auto">{{ t('tip5') }}</a-button>
                         </div>
                     </a-spin>

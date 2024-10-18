@@ -1,5 +1,5 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/configPageProvider.ts
+ * @FilePath: /AutoAPIGen/src/core/webview/configPageProvider.ts
  * @Description: 
  */
 import * as vscode from 'vscode'
@@ -23,7 +23,6 @@ export const generateConfigPage = (webview: vscode.Webview, context: vscode.Exte
 
 					<link href="${styleMainUri}" rel="stylesheet">
 					<link href="${styleArco}" rel="stylesheet">
-
 					<title>配置信息</title>
 				</head>
 				<body>

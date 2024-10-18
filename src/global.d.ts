@@ -286,6 +286,20 @@ interface ApiDetailListData {
   requestBody: {
     type: string;
     parameters: any[]; // Replace with specific type if needed
+    jsonSchema: {
+      type: string;
+      required: string[];
+      properties: {
+        [key: string]: {
+          type: string;
+          items: {
+            type: string;
+            [key: string]: any
+          }
+          description?: string;
+        };
+      }
+    };
   };
   parameters: ApiDetailParameters
   commonParameters: {
