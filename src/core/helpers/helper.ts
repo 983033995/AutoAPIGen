@@ -1,6 +1,6 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/helper.ts
- * @Description: 
+ * @FilePath: /AutoAPIGen/src/core/helpers/helper.ts
+ * @Description: 辅助函数
  */
 import * as vscode from 'vscode'
 import { pinyin } from "pinyin-pro"
@@ -298,6 +298,14 @@ export const cnToPinyin = (cn: string) => {
 };
 
 
+/**
+ * 获取API路径和详细信息
+ *
+ * @param tree API树形列表响应数据，可能为null
+ * @param key 目标API的key
+ * @param rootName 根节点名称
+ * @returns 包含API路径和详细信息的数组
+ */
 export function getPathsAndApiDetails(tree: ApiTreeListResData | null, key: string, rootName: string): PathApiDetail[] {
     if (!tree) {
         return [];
@@ -340,6 +348,13 @@ export function getPathsAndApiDetails(tree: ApiTreeListResData | null, key: stri
         return false;
     }
 
+    /**
+     * 收集最后一个API详情文件夹中的所有API详情
+     *
+     * @param folderNode API树形列表响应数据中的文件夹节点
+     * @param basePath 当前文件夹的路径数组
+     * @param baseKeyArr 当前文件夹的key数组
+     */
     function collectLastApiDetailsFolder(folderNode: ApiTreeListResData, basePath: string[], baseKeyArr: string[]) {
         const apis: apiDetailItem[] = [];
 

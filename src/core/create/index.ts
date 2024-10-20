@@ -5,7 +5,10 @@
 import * as vscode from 'vscode';
 import { getWorkspaceStateUtil } from '../workspace/stateManager';
 import prettier from 'prettier';
+import { FeedbackHelper } from '../helpers/feedbackHelper'
 const fsExtra = require('fs-extra');
+
+
 const apiTypeCollection = ['get', 'delete', 'head', 'options']
 /**
  * 将路径转换为大驼峰形式的字符串
@@ -26,10 +29,15 @@ function convertPathToPascalCase(path: string): string {
     let cleanedPart = part.replace(/[{${}]/g, '');
 
     // 去除连接符 "-" 和 "_"
-    cleanedPart = cleanedPart.replace(/[-_]/g, '');
+    cleanedPart = cleanedPart.split(/[-_]/g).map((str, index) => {
+      if (index > 0) {
+        str = str.charAt(0).toUpperCase() + str.slice(1);
+      }
+      return str
+    }).join('');
 
     // 转换为大驼峰
-    return cleanedPart.charAt(0).toUpperCase() + cleanedPart.slice(1).toUpperCase();
+    return cleanedPart.charAt(0).toUpperCase() + cleanedPart.slice(1);
   });
 
   // 合并成一个字符串
@@ -52,17 +60,18 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
     const apiStat = await fsExtra.pathExists(apiUri.fsPath);
     const interfaceStat = await fsExtra.pathExists(InterfaceUri.fsPath);
     const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-    console.log('----->setting.configInfo?.prettierSetting', setting.configInfo?.prettierSetting, typeof setting.configInfo?.prettierSetting)
-    let petterSetting = {}
-    try {
-      petterSetting = JSON.parse(setting.configInfo?.prettierSetting || '{}')
-    } catch (error) {
-      petterSetting = {
-        semi: false,
-        singleQuote: true,
-        parser: "typescript"
-      }
+    let petterSetting = {
+      semi: false,
+      singleQuote: true,
+      parser: "typescript"
     }
+    try {
+      petterSetting = { ...petterSetting, ...JSON.parse(setting.configInfo?.prettierSetting || '{}')}
+    } catch (error: any) {
+      console.log('----->error', error)
+      FeedbackHelper.logErrorToOutput(`请检查petter配置: ${error}`);
+    }
+    console.log('----->setting.configInfo?.prettierSetting', setting.configInfo?.prettierSetting, typeof setting.configInfo?.prettierSetting, petterSetting)
 
     // 所有接口相关使用的interface集合
     const allInterfaceName = Array.from(new Set(
@@ -91,10 +100,20 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
       return prev + cur.apiInterfaceContext;
     }, '')
 
+    let formattedFunCode = allFunctionContext
     // 格式化代码
-    const formattedFunCode = await prettier.format(allFunctionContext, petterSetting);
+    try {
+      formattedFunCode = await prettier.format(allFunctionContext, petterSetting);
+    } catch (error: any) {
+      FeedbackHelper.logErrorToOutput(`代码格式化失败，请检查petter配置: ${error}`);
+    }
     console.log('------>', formattedFunCode)
-    const formattedInterfaceCode = await prettier.format(allInterfaceContext, petterSetting);
+    let formattedInterfaceCode = allInterfaceContext
+    try {
+      formattedInterfaceCode = await prettier.format(allInterfaceContext, petterSetting);
+    } catch (error) {
+      FeedbackHelper.logErrorToOutput(`代码格式化失败，请检查petter配置: ${error}`);
+    }
     console.log('------>formattedInterfaceCode', formattedInterfaceCode, allInterfaceContext)
 
     // 如果接口方法的文件已存在
@@ -120,11 +139,11 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
           if (interfaceBakStat) {
             await vscode.workspace.fs.rename(InterfaceUri.with({ path: InterfaceUri.path + '.bak' }), InterfaceUri);
           }
-          vscode.window.showErrorMessage(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`)
+          FeedbackHelper.logErrorToOutput(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`);
           throw new Error(`Failed to create file at: ${error || 'Unknown error'}`);
         }
       } else {
-        // 检查文件中是否存在这个函数及该函数相关的接口引用，如果不存在，则写入相应内容，如不存在则将其替换为新的内容
+        // 检查文件中是否存在这个函数及该函数相关的接口引用，如果不存在，则写入相应内容，如存在则将其替换为新的内容
 
       }
     } else {
@@ -135,15 +154,18 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
       // await fsExtra.ensureFile(apiUri.fsPath);
       // await fsExtra.writeFile(apiUri.fsPath, JSON.stringify(apiUri), { encoding: 'utf-8' });
     }
-    console.log('------>filePath', apiStat, interfaceStat, type)
+    console.log('------>filePath', apiStat, interfaceStat, type, apiUri)
   } catch (error) {
+    FeedbackHelper.logErrorToOutput(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`);
     throw new Error(`Failed to create file at: ${error || 'Unknown error'}`);
   }
 }
 
-export async function generateFile(filePathList: PathApiDetail[], type: treeItemType) {
+export async function generateFile(filePathList: PathApiDetail[], type: treeItemType, progress: vscode.Progress<{ message?: string, increment?: number }>) {
   const apiDetailList: ApiDetailListData[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDetailList')?.data || []
   const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
+
+  const createSuccessFiles = []
 
   const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
 
@@ -185,11 +207,18 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
       console.log('------>apiDetailGather', apiDetailGather)
       await createFile(commonPath, apiFunctionPath, funInterfacePath, type, apiDetailGather, axiosQuote)
       console.log('------>funApiPath', apiFunctionPath, funInterfacePath)
+      createSuccessFiles.push(apiFunctionPath.path)
+      createSuccessFiles.push(funInterfacePath.path)
+      const process = (i / filePathList.length) * 100
+      progress.report({ increment: process, message: `已完成 ${Math.round(process)}%` });
     } catch (error) {
       console.error('----->error', error)
+      FeedbackHelper.showError(`文件生成失败: ${error || 'Unknown error'}`)
       continue
     }
   }
+
+  createSuccessFiles.length && FeedbackHelper.showFileCreationResults(createSuccessFiles)
 }
 
 // 构建方法模版
@@ -204,6 +233,9 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
   const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || []
   console.log('---->apiDetailItem', apiDetailItem, apiDetailParams, apiDataSchemas)
   console.log('----->axiosAlias', axiosAlias, axiosQuote)
+  const nameFormatter = (name: string) => {
+    return ['.', '[', ']'].some(item => name.includes(item)) ? `\"${name}\"` : name
+  }
 
   const exportInterfaceQuery = queryParams.length ? `
       /**
@@ -213,7 +245,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}Query {
         ${queryParams.reduce((acc, cur) => {
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
+            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
           `
   }, '')} [key: string]: any
       }
@@ -227,7 +259,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}Body {
         ${requestBody.reduce((acc, cur) => {
           return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-                  ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
+                  ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
                 `
         }, '')} [key: string]: any
       }
@@ -241,7 +273,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}PathQuery {
         ${pathParams.reduce((acc, cur) => {
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${cur.name}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
+            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
           `
   }, '')} [key: string]: any
       }

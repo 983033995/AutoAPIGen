@@ -3,11 +3,12 @@
  * @Description: 
  */
 import * as vscode from 'vscode'
-import { checkFolderOrFileExists, getText, getCurrentWorkspaceStructure, updateFileContent, withProgressWrapper, findSubtreePath, getPathsAndApiDetails } from '../core/helper'
+import { checkFolderOrFileExists, getText, getCurrentWorkspaceStructure, updateFileContent, withProgressWrapper, findSubtreePath, getPathsAndApiDetails } from './helpers/helper'
 import { SETTING_FILE_URL } from '../constant/index'
 import { initHttp, getProjectList, getApiDetailList, getApiTreeList, getDataSchemas } from './http/data'
 import { getWorkspaceStateUtil } from './workspace/stateManager'
 import { generateFile } from '../core/create/index'
+import { FeedbackHelper } from './helpers/feedbackHelper'
 
 const workspaceFolders = vscode.workspace.workspaceFolders || []
 
@@ -97,21 +98,26 @@ const receiveMessages = (webview: vscode.Webview, context: vscode.ExtensionConte
 							const filePathList = getPathsAndApiDetails(treeNode, key, configInfo.appName)
 							console.log('----->treeNode', treeNode)
 							console.log('----->filePathList', filePathList)
-							await generateFile(filePathList, itemType)
-							await withProgressWrapper('AutoApiGen', async (progress) => {
-								progress.report({
-									message: '正在生成文件...',
-									increment: 10
-								})
+							FeedbackHelper.showProgress('正在生成文件...', async (progress) => {
+								let process = 0
+								progress.report({ increment: 10, message: `已完成 ${process}%` });
+								await generateFile(filePathList, itemType, progress)
 							})
 						},
 						copy: () => {}
 					}
 					handler[type] && await handler[type]()
+				},
+				joinEnd: () => {
+					webview.postMessage({
+						command: 'joinEnd',
+						data: true
+					})
 				}
 			}
 
 			handler[command] && await handler[command]()
+			handler.joinEnd()
 		} catch (error) {
 			console.error(`Error handling ${message.command}:`, error);
 			webview.postMessage({

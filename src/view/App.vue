@@ -246,8 +246,10 @@ const countAllChildren = (treeNode: ApiTreeListResData) => {
 }
 
 const treeListLoading = ref(false)
+const treeListTip = ref('数据更新中...')
 const updateTree = () => {
   treeListLoading.value = true
+  treeListTip.value = '数据更新中...'
   vscode.postMessage({
     command: 'getWorkspaceState', data: {
       init: true,
@@ -257,6 +259,8 @@ const updateTree = () => {
 
 const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
   console.log('------>handleSelectOperate', type, data)
+  treeListLoading.value = true
+  treeListTip.value = '请稍候...'
   vscode.postMessage({
     command: 'interfaceOperate', data: {
       type,
@@ -281,6 +285,9 @@ window.addEventListener('message', (event) => {
       break
     case 'loadData':
       loading.value = true
+      break
+    case 'joinEnd':
+      treeListLoading.value = false
       break
     // case 'setCurrentFileExample':
     //   lastFile.value = currentFile.value
@@ -311,7 +318,7 @@ window.addEventListener('message', (event) => {
 
       <a-divider dashed margin="10px" />
 
-      <a-spin dot tip="数据更新中..." :loading="treeListLoading" class="w-full flex-1 overflow-hidden">
+      <a-spin dot :tip="treeListTip" :loading="treeListLoading" class="w-full flex-1 overflow-hidden">
         <div v-if="checkConfigRes.success" class="w-full h-full overflow-hidden flex-col flex">
           <div class="w-full flex justify-between">
             <div class="flex-1">

@@ -17,7 +17,7 @@ type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
 
 type AppCollections = 'apifox' | 'postman' | 'apipost'
 
-type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate'
+type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd'
 
 type WebviewMessageCollection = Record<WebviewMessageKey, (...args: any[]) => any>
 
