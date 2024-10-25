@@ -9,11 +9,13 @@ export const APP_LIST = [
     },
     {
         label: 'postman',
-        value: 'postman'
+        value: 'postman',
+        disabled: true
     },
     {
         label: 'apiPost',
-        value: 'Apipost'
+        value: 'Apipost',
+        disabled: true
     }
 ]
 

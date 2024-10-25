@@ -21,7 +21,8 @@
     "patch": "Patch Request Configuration",
     "model": "interface model",
     "prettierSetting": "prettier setting",
-    "axiosPath": "axios path"
+    "axiosPath": "axios path",
+    "axiosReturnKey": "axios return key"
   },
   "save": "save",
   "tip5": "obtain list",

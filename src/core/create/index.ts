@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import { getWorkspaceStateUtil } from '../workspace/stateManager';
 import prettier from 'prettier';
 import { FeedbackHelper } from '../helpers/feedbackHelper'
+import { firstToLocaleUpperCase } from '../helpers/helper'
 const fsExtra = require('fs-extra');
 
 
@@ -66,7 +67,7 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
       parser: "typescript"
     }
     try {
-      petterSetting = { ...petterSetting, ...JSON.parse(setting.configInfo?.prettierSetting || '{}')}
+      petterSetting = { ...petterSetting, ...JSON.parse(setting.configInfo?.prettierSetting || '{}') }
     } catch (error: any) {
       console.log('----->error', error)
       FeedbackHelper.logErrorToOutput(`请检查petter配置: ${error}`);
@@ -91,6 +92,7 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
       import type { AxiosRequestConfig } from 'axios'
       import type { ${allInterfaceName} } from './interface'
       ${axiosQuote}
+      type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
     `
     // 拼接所有接口方法
     const allFunctionContext = apiFunctionHead + apiFunctionStr
@@ -201,7 +203,7 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
           interfaceQueryName: (apiDetailItem?.parameters?.query || []).length ? `${apiFunctionName}Query` : '',
           interfaceResName: `${apiFunctionName}Res`,
           interfacePathQueryName: (apiDetailItem?.parameters?.path || []).length > 1 ? `${apiFunctionName}PathQuery` : '',
-          interfaceBodyQueryName: (apiDetailItem?.requestBody?.parameters || []).length ? `${apiFunctionName}Body` : '',
+          interfaceBodyQueryName: (apiDetailItem?.requestBody?.parameters || []).length || apiDetailItem?.requestBody?.jsonSchema ? `${apiFunctionName}Body` : '',
         }
       })
       console.log('------>apiDetailGather', apiDetailGather)
@@ -221,21 +223,21 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
   createSuccessFiles.length && FeedbackHelper.showFileCreationResults(createSuccessFiles)
 }
 
+const nameFormatter = (name: string) => {
+  return ['.', '[', ']'].some(item => name.includes(item)) ? `\"${name}\"` : name
+}
+
 // 构建方法模版
 function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string, apiModel: apiModelType, apiDetailItem: Partial<ApiDetailListData>, axiosQuote: string): { fun: string, interFace: string } {
   const pathParams = apiDetailItem?.parameters?.path || [] // 拼接在url路径上的动态参数
   const queryParams = apiDetailItem?.parameters?.query || [] // 正常的query参数
   const apiDetailParams: ApiDetailParametersQuery[] = [...pathParams, ...queryParams]
-  const requestBody = apiDetailItem?.requestBody?.parameters || []
+  const haveReqBody = (apiDetailItem?.requestBody?.parameters || []).length || apiDetailItem?.requestBody?.jsonSchema
   const axiosAlias = extractVariableName(axiosQuote)
   const apiPath = convertToTemplateString(apiDetailItem.path || '', pathParams)
   const apiMethod = apiDetailItem.method || 'get'
-  const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || []
-  console.log('---->apiDetailItem', apiDetailItem, apiDetailParams, apiDataSchemas)
+  console.log('---->apiDetailItem', apiDetailItem, apiDetailParams)
   console.log('----->axiosAlias', axiosAlias, axiosQuote)
-  const nameFormatter = (name: string) => {
-    return ['.', '[', ']'].some(item => name.includes(item)) ? `\"${name}\"` : name
-  }
 
   const exportInterfaceQuery = queryParams.length ? `
       /**
@@ -245,24 +247,18 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}Query {
         ${queryParams.reduce((acc, cur) => {
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
+            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
           `
   }, '')} [key: string]: any
       }
       ` : ''
 
-      const exportInterfaceBody = requestBody.length ? `
+  const exportInterfaceBody = haveReqBody ? `
       /**
        * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口请求Body参数
        * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
       */
-      export interface ${apiFunctionName}Body {
-        ${requestBody.reduce((acc, cur) => {
-          return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-                  ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
-                `
-        }, '')} [key: string]: any
-      }
+      ${buildParametersSchema(apiDetailItem?.requestBody || {}, apiFunctionName)}
       ` : ''
 
   const exportInterfacePathQuery = pathParams.length > 1 ? `
@@ -273,7 +269,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
       export interface ${apiFunctionName}PathQuery {
         ${pathParams.reduce((acc, cur) => {
     return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur, apiDataSchemas)}
+            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
           `
   }, '')} [key: string]: any
       }
@@ -301,30 +297,30 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
     const args = []
     if (pathParams.length) {
       if (pathParams.length > 1) {
-        args.push(`pathParams: ${apiFunctionName}PathQuery `)
+        args.push(`pathParams: Expand<${apiFunctionName}PathQuery>`)
       } else {
-        args.push(`${pathParams[0].name}: ${pathParams[0]?.type || 'string'}`)
+        args.push(`${pathParams[0].name}: ${buildParameters(pathParams[0])}`)
       }
     }
     if (queryParams.length) {
-      args.push(`params: ${apiFunctionName}Query`)
+      args.push(`params: Expand<${apiFunctionName}Query>`)
     }
-    if (!apiTypeCollection.includes(apiDetailItem.method || 'get') && requestBody.length) {
-      args.push(`data: ${apiFunctionName}Body`)
+    if (!apiTypeCollection.includes(apiDetailItem.method || 'get') && haveReqBody) {
+      args.push(`data: Expand<${apiFunctionName}Body>`)
     }
     args.push('axiosConfig?: AxiosRequestConfig')
     const argsStr = args.join(', ')
 
-    return `export const ${apiFunctionName} = async (${argsStr}): Promise<${apiFunctionName}Res> => {`
+    return `export const ${apiFunctionName} = async (${argsStr}): Promise<Expand<${apiFunctionName}Res>> => {`
   }
 
 
   // 构造API请求路径
   const apiFunctionBody = () => {
     const url = apiDetailParams.length ? `\`${apiPath || ''}${queryParams.length ? '?${qs.stringify(params)}' : ''}\`` : `'${apiDetailItem.path || ''}'`
-    const bodyParams = apiTypeCollection.includes(apiDetailItem.method || 'get') ? '' : requestBody.length ? 'data, ' : `{}, `
+    const bodyParams = apiTypeCollection.includes(apiDetailItem.method || 'get') ? '' : haveReqBody ? 'data, ' : `{}, `
     return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}axiosConfig);`
-  } 
+  }
   const handler = {
     axios: () => ({
       fun: `
@@ -350,9 +346,108 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
   console.log('-------->handler[apiModel]()', handler[apiModel]().fun)
   return { ...handler[apiModel](), interFace: exportInterface }
 }
+// 递归函数，用于生成接口参数
+function transformSchema(jsonSchema: Record<string, any>, interfaceName: string): string {
+  let res = '';
+  let childrenRes = '';
+  const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || [];
+  const schemaTypes = ['object', 'array'];
+  
+  // 用来跟踪已经处理过的 $ref，防止死循环
+  const processedRefs = new Set<string>();
+
+  const isSchema = (propertiesObj: Record<string, any>) => {
+    return schemaTypes.includes(propertiesObj?.type || 'any') || propertiesObj?.$ref;
+  };
+
+  const output = (obj: Record<string, any>, faceName: string): string => {
+    // 处理 $ref 的逻辑，避免死循环
+    if (obj.$ref) {
+      const refId = obj.$ref.split('/').pop();
+      if (processedRefs.has(refId!)) {
+        return ''; // 如果已经处理过该 $ref，则不再处理，防止循环
+      }
+      processedRefs.add(refId!); // 标记该 $ref 已处理
+      const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
+      return output(schema, faceName);
+    } else {
+      const type = obj?.type || 'object';
+      if (type === 'object') {
+        let resStr = '';
+        const { 'x-apifox-orders': keys = [], required = [], properties = {} } = obj;
+        for (const key of keys) {
+          const { title } = properties[key];
+          resStr += ` /** ${title || ''} */
+            ${nameFormatter(key)}${required.includes(key) ? '' : '?'}: ${isSchema(properties[key]) ? `${buildChildrenOutput(properties[key], `${faceName}${firstToLocaleUpperCase(key)}`)}` : buildParameters(properties[key])}
+          `;
+        }
+        return resStr;
+      } else if (type === 'array') {
+        const { items } = obj;
+        return output(items, faceName);
+      } else {
+        return buildParameters(obj);
+      }
+    }
+  };
+
+  res = `
+    export interface ${interfaceName}Body {
+      ${output(jsonSchema, interfaceName)}
+      [key: string]: any
+    }
+  `;
+
+  function buildChildrenOutput(childrenObj: Record<string, any>, childrenFaceName: string): string {
+    const type = childrenObj?.type || 'any';
+    const childrenInterface = type === 'array' ? `${childrenFaceName}Item[]` : childrenFaceName;
+    const childrenInterfaceName = type === 'array' ? `${childrenFaceName}Item` : childrenFaceName;
+
+    if (!processedRefs.has(childrenInterfaceName)) {
+      let childrenResStr = `
+        export interface ${childrenInterfaceName} {
+          ${output(childrenObj, childrenFaceName)}
+          [key: string]: any
+        }
+      `;
+      childrenRes += childrenResStr;
+      processedRefs.add(childrenInterfaceName); // 标记已处理
+    }
+
+    return childrenInterface;
+  }
+
+  return res + childrenRes; // 包含子接口的结果
+}
+
+// 构建jsonSchema类型的requestBody模版
+function buildParametersSchema(configObj: Record<string, any>, interfaceName: string): string {
+  if (!configObj) {
+    return `
+      export interface ${interfaceName}Body {
+        [key: string]: any
+      }
+    `;
+  } else if (configObj.jsonSchema) {
+    console.log('------>buildParameters------', configObj.jsonSchema);
+    return transformSchema(configObj.jsonSchema, interfaceName);
+  } else {
+    const bodyParameters: any[] = configObj.parameters || [];
+    return `
+      export interface ${interfaceName}Body {
+        ${bodyParameters.reduce((acc, cur) => {
+          return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
+            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
+          `;
+        }, '')} [key: string]: any
+      }
+    `;
+  }
+}
 
 // 构建参数模版
-function buildParameters(parameters: ApiDetailParametersQuery, apiDataSchemas: ApiDataSchemasItem[]): string {
+function buildParameters(parameters: ApiDetailParametersQuery): string {
+  console.log('-------->buildParameters', parameters)
   const schema = parameters?.schema || undefined
   const typeMap = {
     'date-time': () => 'Date',

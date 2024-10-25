@@ -294,7 +294,23 @@ export const cnToPinyin = (cn: string) => {
         }
         return firstToLocaleUpperCase(item);
     });
-    return pyArr2.join('');
+    const path = pyArr2.join('')
+    .replace(/\s/g, '')
+    .replace(/，/g, ',')
+    .replace(/。/g, '.')
+    .replace(/？/g, '?')
+    .replace(/！/g, '!')
+    .replace(/：/g, ':')
+    .replace(/；/g, ';')
+    .replace(/“/g, '"')
+    .replace(/”/g, '"')
+    .replace(/（/g, '(')
+    .replace(/）/g, ')')
+    .replace(/……/g, '...')
+    .replace(/《/g, '<')
+    .replace(/》/g, '>')
+    console.log('-------->path', path, pyArr2)
+    return path;
 };
 
 

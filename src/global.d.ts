@@ -53,6 +53,7 @@ interface ConfigFromModel {
   put?: string
   delete?: string
   patch?: string
+  axiosReturnKey?: string
 }
 
 type KeysType = Expand<keyof ConfigFromModel>
@@ -299,6 +300,7 @@ interface ApiDetailListData {
           description?: string;
         };
       }
+      "x-apifox-orders"?: string[];
     };
   };
   parameters: ApiDetailParameters

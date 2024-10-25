@@ -21,7 +21,8 @@
     "patch": "patch请求配置",
     "model": "接口模型",
     "prettierSetting": "prettier配置",
-    "axiosPath": "axios引用路径"
+    "axiosPath": "axios引用路径",
+    "axiosReturnKey": "axios返回数据key"
   },
   "save": "保存",
   "tip5": "获取项目列表",

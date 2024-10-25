@@ -27,6 +27,7 @@ const defaultModel = {
     model: '' as apiModelType,
     prettierSetting: '{\n    "semi": false, \n    "singleQuote": true,\n    "parser": "typescript"\n}',
     axiosPath: '',
+    axiosReturnKey: '',
 }
 
 // 表单配置信息
@@ -178,7 +179,7 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                 <a-form-item field="appName" tooltip="Please enter username" :label="t('configInfoFrom.appLabel')">
                     <a-select v-model="formConfig.appName" placeholder="Please select ...">
                         <a-option v-for="item in APP_LIST" :key="item.value" :value="item.value"
-                            :label="item.label"></a-option>
+                            :label="item.label" :disabled="item.disabled"></a-option>
                     </a-select>
                 </a-form-item>
                 <a-form-item field="Authorization" :label="t('configInfoFrom.Authorization')">
@@ -206,6 +207,9 @@ const workspacePath = computed(() => configInfo.value?.workspaceFolders[0].uri.p
                 </a-form-item>
                 <a-form-item field="axiosPath" tooltip="输入axios引用路径（使用@等别名配置）" :label="t('configInfoFrom.axiosPath')">
                     <a-input v-model="formConfig.axiosPath" />
+                </a-form-item>
+                <a-form-item field="axiosReturnKey" tooltip="响应拦截中最终返回的属性，如有多个使用英文‘,’分割" :label="t('configInfoFrom.axiosReturnKey')">
+                    <a-input v-model="formConfig.axiosReturnKey" />
                 </a-form-item>
                 <a-form-item field="prettierSetting" tooltip="Please enter prettier setting"
                     :label="t('configInfoFrom.prettierSetting')">
