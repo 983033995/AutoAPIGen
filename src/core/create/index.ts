@@ -224,7 +224,7 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
 }
 
 const nameFormatter = (name: string) => {
-  return ['.', '[', ']'].some(item => name.includes(item)) ? `\"${name}\"` : name
+  return ['.', '[', ']', '-'].some(item => name.includes(item)) ? `\"${name}\"` : name
 }
 
 // 构建方法模版
@@ -376,15 +376,17 @@ function transformSchema(jsonSchema: Record<string, any>, interfaceName: string)
         let resStr = '';
         const { 'x-apifox-orders': keys = [], required = [], properties = {} } = obj;
         for (const key of keys) {
-          const { title } = properties[key];
-          resStr += ` /** ${title || ''} */
-            ${nameFormatter(key)}${required.includes(key) ? '' : '?'}: ${isSchema(properties[key]) ? `${buildChildrenOutput(properties[key], `${faceName}${firstToLocaleUpperCase(key)}`)}` : buildParameters(properties[key])}
-          `;
+          if (!properties[key]['x-tmp-pending-properties']) {
+            const { title } = properties[key];
+            resStr += ` /** ${title || ''} */
+              ${nameFormatter(key)}${required.includes(key) ? '' : '?'}: ${isSchema(properties[key]) ? properties[key].type === 'array' && isSchema(properties[key].items) ? `${buildChildrenOutput(properties[key], `${faceName}${firstToLocaleUpperCase(key)}`)}` : `${properties[key].items?.type || 'any'}[]` : buildParameters(properties[key])}
+            `;
+          }
         }
         return resStr;
       } else if (type === 'array') {
         const { items } = obj;
-        return output(items, faceName);
+        return schemaTypes.includes(items.type) ? output(items, faceName) : buildParameters(items);
       } else {
         return buildParameters(obj);
       }
@@ -463,7 +465,7 @@ function buildParameters(parameters: ApiDetailParametersQuery): string {
         const resType: keyof typeof typeMap = schema.items?.format || schema.items?.type || 'string'
         return `${typeMap[resType] ? typeMap[resType]() : 'any'}[]`
       }
-      return 'any[]'
+      return 'string[]'
     },
     'file': () => 'File | Blob | ArrayBuffer | Uint8Array',
   }
