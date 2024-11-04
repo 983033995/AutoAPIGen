@@ -146,7 +146,10 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
         }
       } else {
         // 检查文件中是否存在这个函数及该函数相关的接口引用，如果不存在，则写入相应内容，如存在则将其替换为新的内容
-
+        const updatedApiContent = await updateFileContent(apiUri, formattedFunCode, "function");
+        await vscode.workspace.fs.writeFile(apiUri, Buffer.from(updatedApiContent));
+        const updatedInterfaceContent = await updateFileContent(InterfaceUri, formattedInterfaceCode, "interface");
+        await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(updatedInterfaceContent));
       }
     } else {
       // 如果接口方法的文件不存在
@@ -161,6 +164,55 @@ export async function createFile(commonPath: string, apiUri: vscode.Uri, Interfa
     FeedbackHelper.logErrorToOutput(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`);
     throw new Error(`Failed to create file at: ${error || 'Unknown error'}`);
   }
+}
+
+// 检查并更新文件内容
+async function updateFileContent(uri: vscode.Uri, newContent: string, contentType: "function" | "interface"): Promise<string> {
+  const fileContentBuffer = await vscode.workspace.fs.readFile(uri);
+  const fileContent = fileContentBuffer.toString();
+
+  const contentExists = contentType === "function"
+    ? hasFunctionDefinition(fileContent, newContent)
+    : hasInterfaceDefinition(fileContent, newContent);
+
+  if (contentExists) {
+    return replaceExistingContent(fileContent, newContent, contentType);
+  } else {
+    return fileContent + "\n" + newContent;
+  }
+}
+
+// 检查函数定义是否存在
+function hasFunctionDefinition(fileContent: string, functionContent: string): boolean {
+  const functionName = extractFunctionName(functionContent);
+  const regex = new RegExp(`export const ${functionName}\\s*=`, 'g');
+  return regex.test(fileContent);
+}
+
+// 检查接口定义是否存在
+function hasInterfaceDefinition(fileContent: string, interfaceContent: string): boolean {
+  const interfaceName = extractInterfaceName(interfaceContent);
+  const regex = new RegExp(`export interface ${interfaceName}\\s*{`, 'g');
+  return regex.test(fileContent);
+}
+
+// 替换现有内容
+function replaceExistingContent(fileContent: string, newContent: string, contentType: "function" | "interface"): string {
+  const name = contentType === "function" ? extractFunctionName(newContent) : extractInterfaceName(newContent);
+  const regex = new RegExp(`export ${contentType} ${name}[^]*?(?=export|$)`, 'g');
+  return fileContent.replace(regex, newContent);
+}
+
+// 提取函数名称
+function extractFunctionName(functionContent: string): string {
+  const match = functionContent.match(/export const (\w+)\s*=/);
+  return match ? match[1] : "";
+}
+
+// 提取接口名称
+function extractInterfaceName(interfaceContent: string): string {
+  const match = interfaceContent.match(/export interface (\w+)\s*{/);
+  return match ? match[1] : "";
 }
 
 export async function generateFile(filePathList: PathApiDetail[], type: treeItemType, progress: vscode.Progress<{ message?: string, increment?: number }>) {
@@ -236,6 +288,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
   const axiosAlias = extractVariableName(axiosQuote)
   const apiPath = convertToTemplateString(apiDetailItem.path || '', pathParams)
   const apiMethod = apiDetailItem.method || 'get'
+  const responses = apiDetailItem?.responses?.find(res => +res.code === 200) || {}
   console.log('---->apiDetailItem', apiDetailItem, apiDetailParams)
   console.log('----->axiosAlias', axiosAlias, axiosQuote)
 
@@ -258,7 +311,7 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
        * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口请求Body参数
        * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
       */
-      ${buildParametersSchema(apiDetailItem?.requestBody || {}, apiFunctionName)}
+      ${buildParametersSchema(apiDetailItem?.requestBody || {}, `${apiFunctionName}Body`)}
       ` : ''
 
   const exportInterfacePathQuery = pathParams.length > 1 ? `
@@ -280,8 +333,8 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
        * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口返回值
        * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
       */
-      export interface ${apiFunctionName}Res {}
-      `
+      ${buildParametersSchema(responses || {}, `${apiFunctionName}Res`)}
+     `
   const exportInterface = exportInterfaceQuery + exportInterfacePathQuery + exportInterfaceBody + exportInterfaceRes
   console.log('----->apiDetailParams.length', apiDetailParams.length, exportInterface)
 
@@ -346,102 +399,141 @@ function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string
   console.log('-------->handler[apiModel]()', handler[apiModel]().fun)
   return { ...handler[apiModel](), interFace: exportInterface }
 }
+
 // 递归函数，用于生成接口参数
 function transformSchema(jsonSchema: Record<string, any>, interfaceName: string): string {
   let res = '';
   let childrenRes = '';
   const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || [];
   const schemaTypes = ['object', 'array'];
-  
-  // 用来跟踪已经处理过的 $ref，防止死循环
+
   const processedRefs = new Set<string>();
+  const processedInterfaces = new Set<string>();
 
   const isSchema = (propertiesObj: Record<string, any>) => {
     return schemaTypes.includes(propertiesObj?.type || 'any') || propertiesObj?.$ref;
   };
 
   const output = (obj: Record<string, any>, faceName: string): string => {
-    // 处理 $ref 的逻辑，避免死循环
     if (obj.$ref) {
       const refId = obj.$ref.split('/').pop();
-      if (processedRefs.has(refId!)) {
-        return ''; // 如果已经处理过该 $ref，则不再处理，防止循环
-      }
-      processedRefs.add(refId!); // 标记该 $ref 已处理
+      if (!refId || processedRefs.has(refId)) return '';
+      processedRefs.add(refId);
+
       const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
       return output(schema, faceName);
-    } else {
-      const type = obj?.type || 'object';
-      if (type === 'object') {
-        let resStr = '';
-        const { 'x-apifox-orders': keys = [], required = [], properties = {} } = obj;
-        for (const key of keys) {
-          if (!properties[key]['x-tmp-pending-properties']) {
-            const { title } = properties[key];
-            resStr += ` /** ${title || ''} */
-              ${nameFormatter(key)}${required.includes(key) ? '' : '?'}: ${isSchema(properties[key]) ? properties[key].type === 'array' && isSchema(properties[key].items) ? `${buildChildrenOutput(properties[key], `${faceName}${firstToLocaleUpperCase(key)}`)}` : `${properties[key].items?.type || 'any'}[]` : buildParameters(properties[key])}
-            `;
-          }
-        }
-        return resStr;
-      } else if (type === 'array') {
-        const { items } = obj;
-        return schemaTypes.includes(items.type) ? output(items, faceName) : buildParameters(items);
-      } else {
-        return buildParameters(obj);
+    }
+
+    const type = obj?.type || 'object';
+    if (type === 'object') {
+      let resStr = '';
+      const { 'x-apifox-orders': keys = [], required = [], properties = {} } = obj;
+
+      for (const key of keys) {
+        const property = properties[key];
+        if (property['x-tmp-pending-properties']) continue;
+
+        const title = property.title || '';
+        const isRequired = required.includes(key);
+        const typeStr = buildPropertyType(property, key, faceName);
+
+        resStr += `
+          /** ${title} */
+          ${nameFormatter(key)}${isRequired ? '' : '?'}: ${typeStr};`;
       }
+      return resStr;
+    } else if (type === 'array') {
+      const { items } = obj;
+      return schemaTypes.includes(items.type) ? output(items, faceName) : buildParameters(items);
+    } else {
+      return buildParameters(obj);
     }
   };
 
   res = `
-    export interface ${interfaceName}Body {
+    export interface ${interfaceName} {
       ${output(jsonSchema, interfaceName)}
       [key: string]: any
     }
   `;
+
+  function buildPropertyType(property: Record<string, any>, key: string, faceName: string) {
+    if (isSchema(property)) {
+      if (property.type === 'array') {
+        return isSchema(property.items)
+          ? `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`
+          : `${property.items?.type || 'any'}[]`;
+      } else {
+        if (property?.$ref) {
+          const refId = property.$ref.split('/').pop();
+          console.log('------>已存在ref', refId, processedRefs);
+          if (!refId || processedRefs.has(refId)) return '';
+          processedRefs.add(refId);
+          const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
+          return `${buildChildrenOutput(schema, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
+        }
+        return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
+      }
+    } else {
+      return buildParameters(property);
+    }
+  }
 
   function buildChildrenOutput(childrenObj: Record<string, any>, childrenFaceName: string): string {
     const type = childrenObj?.type || 'any';
     const childrenInterface = type === 'array' ? `${childrenFaceName}Item[]` : childrenFaceName;
     const childrenInterfaceName = type === 'array' ? `${childrenFaceName}Item` : childrenFaceName;
 
-    if (!processedRefs.has(childrenInterfaceName)) {
-      let childrenResStr = `
+    const getRefObj = (ref: string): Record<string, any> => {
+      const refId = ref.split('/').pop() || '';
+      console.log('------>已存在refId----', refId, processedRefs, childrenInterfaceName, processedInterfaces);
+      if (!refId || processedRefs.has(refId)) return {};
+      processedRefs.add(refId);
+      const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
+      return schema;
+    }
+
+    const noRef = childrenObj?.$ref || childrenObj?.items?.$ref ? getRefObj(childrenObj.$ref || childrenObj?.items?.$ref) : childrenObj;
+    if (!processedInterfaces.has(childrenInterfaceName)) {
+      processedInterfaces.add(childrenInterfaceName);
+
+      let childrenResStr = type === 'string' ? `
+        /** ${noRef.title || ''}${noRef.description || ''} */
+        export type ${childrenInterfaceName} = ${buildParameters(noRef)}
+      ` : `
+        /** ${noRef.title || ''}${noRef.description || ''} */
         export interface ${childrenInterfaceName} {
-          ${output(childrenObj, childrenFaceName)}
+          ${output(noRef, childrenFaceName)}
           [key: string]: any
         }
       `;
       childrenRes += childrenResStr;
-      processedRefs.add(childrenInterfaceName); // 标记已处理
     }
 
     return childrenInterface;
   }
 
-  return res + childrenRes; // 包含子接口的结果
+  return res + childrenRes;
 }
 
-// 构建jsonSchema类型的requestBody模版
 function buildParametersSchema(configObj: Record<string, any>, interfaceName: string): string {
   if (!configObj) {
     return `
-      export interface ${interfaceName}Body {
+      export interface ${interfaceName} {
         [key: string]: any
       }
     `;
   } else if (configObj.jsonSchema) {
-    console.log('------>buildParameters------', configObj.jsonSchema);
     return transformSchema(configObj.jsonSchema, interfaceName);
   } else {
     const bodyParameters: any[] = configObj.parameters || [];
     return `
-      export interface ${interfaceName}Body {
+      export interface ${interfaceName} {
         ${bodyParameters.reduce((acc, cur) => {
-          return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
+      return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
             ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
           `;
-        }, '')} [key: string]: any
+    }, '')} [key: string]: any
       }
     `;
   }
@@ -454,7 +546,12 @@ function buildParameters(parameters: ApiDetailParametersQuery): string {
   const typeMap = {
     'date-time': () => 'Date',
     'date': () => 'Date',
-    'string': () => 'string',
+    'string': () => {
+      if (parameters?.enum) {
+        return parameters.enum.map(item => `'${item}'`).join(' | ')
+      }
+      return 'string'
+    },
     'integer': () => 'number',
     'int64': () => 'number',
     'int32': () => 'number',

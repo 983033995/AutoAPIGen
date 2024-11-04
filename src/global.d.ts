@@ -253,6 +253,7 @@ interface ApiDetailParametersQuery {
     type?: string;
     [key: string]: any
   }
+  enum: any[];
 }
 interface ApiDetailParameters {
   query: ApiDetailParametersQuery[];
