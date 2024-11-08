@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/core/webview/BaseViewProvider.ts
  * @Description: 
  */
+/// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode'
 import { handleMessages } from '../messenger'
 

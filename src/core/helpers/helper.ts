@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/core/helpers/helper.ts
  * @Description: 辅助函数
  */
+/// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode'
 import { pinyin } from "pinyin-pro"
 const fs = require('fs-extra')

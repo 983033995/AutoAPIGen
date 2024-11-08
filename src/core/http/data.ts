@@ -2,10 +2,11 @@
  * @FilePath: /AutoAPIGen/src/core/http/data.ts
  * @Description: 
  */
+/// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode'
 import { api } from './api'
 import type { AxiosInstance } from 'axios'
-
+import { getWorkspaceStateUtil } from '../workspace/stateManager'
 export let http: AxiosInstance
 
 /**
@@ -38,6 +39,10 @@ export const getProjectList = async () => {
         if (spaceListRes.status === 200 && projectListRes.status === 200) {
             const spaceList: UserTeamsResData = spaceListRes.data.data
             const projectList: UserProjectResData = projectListRes.data.data
+            getWorkspaceStateUtil().set('AutoApiGen.UserProjects', {
+                updateTime: Date.now(),
+                data: projectList || []
+            })
             const projectListTree = spaceList.map((item: any) => {
                 item.children = projectList.filter((project: any) => project.teamId === item.id)
                 return item

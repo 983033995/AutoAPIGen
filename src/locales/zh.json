@@ -15,14 +15,15 @@
     "projectId": "项目ID",
     "head": "依赖项",
     "get": "get请求配置",
-    "post": "post请求配置",
+    "customExtraFunction": "自定义拓展函数",
     "put": "put请求配置",
     "delete": "delete请求配置",
     "patch": "patch请求配置",
     "model": "接口模型",
     "prettierSetting": "prettier配置",
     "axiosPath": "axios引用路径",
-    "axiosReturnKey": "axios返回数据key"
+    "axiosReturnKey": "axios返回数据key",
+    "useProjectName": "使用项目名"
   },
   "save": "保存",
   "tip5": "获取项目列表",

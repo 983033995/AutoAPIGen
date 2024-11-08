@@ -15,14 +15,15 @@
     "projectId": "project id",
     "head": "dependencies",
     "get": "Get Request Configuration",
-    "post": "Post Request Configuration",
+    "customExtraFunction": "custom extension function",
     "put": "Put Request Configuration",
     "delete": "Delete Request Configuration",
     "patch": "Patch Request Configuration",
     "model": "interface model",
     "prettierSetting": "prettier setting",
     "axiosPath": "axios path",
-    "axiosReturnKey": "axios return key"
+    "axiosReturnKey": "axios return key",
+    "useProjectName": "use project name"
   },
   "save": "save",
   "tip5": "obtain list",

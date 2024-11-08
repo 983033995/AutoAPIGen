@@ -2,6 +2,8 @@
  * @FilePath: /AutoAPIGen/src/core/http/api.ts
  * @Description: 
  */
+
+/// <reference path="../../global.d.ts" />
 import axios from 'axios'
 
 /**

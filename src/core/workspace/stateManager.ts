@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/core/workspace/stateManager.ts
  * @Description: 
  */
+/// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode';
 import { WorkspaceStateUtil } from './workspaceStateUtils';
 

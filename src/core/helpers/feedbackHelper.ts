@@ -2,7 +2,7 @@
  * @FilePath: /AutoAPIGen/src/core/helpers/feedbackHelper.ts
  * @Description: 提供一些常用的提示消息显示方法
  */
-
+/// <reference path="../../global.d.ts" />
 import * as vscode from "vscode";
 import * as path from "path";
 

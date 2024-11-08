@@ -48,12 +48,10 @@ interface ConfigFromModel {
   prettierSetting: string
   axiosPath?: string
   head?: string
-  get?: string
-  post?: string
-  put?: string
-  delete?: string
-  patch?: string
+  customReturn?: string
+  customExtraFunction?: string
   axiosReturnKey?: string
+  useProjectName: boolean
 }
 
 type KeysType = Expand<keyof ConfigFromModel>
@@ -164,7 +162,7 @@ interface TreeNode {
 }
 
 // 全部的空间缓存数据
-type WorkspaceStateKey = 'AutoApiGen.ApiProjectList' | 'AutoApiGen.ApiTreeList' | 'AutoApiGen.ApiDetailList' | 'AutoApiGen.setting' | 'AutoApiGen.ApiDataSchemas'
+type WorkspaceStateKey = 'AutoApiGen.ApiProjectList' | 'AutoApiGen.ApiTreeList' | 'AutoApiGen.ApiDetailList' | 'AutoApiGen.setting' | 'AutoApiGen.ApiDataSchemas' | 'AutoApiGen.UserProjects'
 type WorkspaceStateData = {
   updateTime: number,
   data: any
@@ -323,6 +321,7 @@ interface ApiDetailListData {
     jsonSchema: ApiDetailResponse; // Assuming response structure is consistent
     defaultEnable: boolean;
     ordering: number;
+    $ref?: string;
   }[];
   responseExamples: any[]; // Replace with specific type if needed
   codeSamples: any[]; // Replace with specific type if needed

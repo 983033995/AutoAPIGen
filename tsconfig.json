@@ -23,10 +23,11 @@
       "vitest",
       "vite/client",
       "unplugin-icons/types/vue",
-      "@intlify/unplugin-vue-i18n/messages"
+      "@intlify/unplugin-vue-i18n/messages",
+      "./src/global.d.ts"
     ]
   },
-  "include": ["src/**/*", "src/**/*.json", "auto-imports.d.ts"],
+  "include": ["src/**/*", "src/**/*.json", "auto-imports.d.ts", "./src/global.d.ts"],
   "exclude": ["dist", "node_modules", "vite.config.ts"],
   "paths": {
     "@/*": [

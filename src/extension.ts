@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/extension.ts
  * @Description: 
  */
+/// <reference path="./global.d.ts" />
 import * as vscode from 'vscode'
 import { BaseViewProvider } from './core/webview/BaseViewProvider'
 import { generateConfigPage } from './core/webview/configPageProvider'

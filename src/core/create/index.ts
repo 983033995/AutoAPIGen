@@ -1,49 +1,10 @@
-/*
- * @FilePath: /AutoAPIGen/src/core/create/index.ts
- * @Description: 
- */
+/// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode';
 import { getWorkspaceStateUtil } from '../workspace/stateManager';
-import prettier from 'prettier';
 import { FeedbackHelper } from '../helpers/feedbackHelper'
-import { firstToLocaleUpperCase } from '../helpers/helper'
 const fsExtra = require('fs-extra');
-
-
-const apiTypeCollection = ['get', 'delete', 'head', 'options']
-/**
- * 将路径转换为大驼峰形式的字符串
- *
- * @param path 路径字符串
- * @returns 转换后的大驼峰形式的字符串
- */
-function convertPathToPascalCase(path: string): string {
-  path = path.replace(/^https?:\/\/[^\/]+/, '')
-
-  // 分割路径并提取最后三个部分
-  const parts = path.split('/').filter(Boolean);
-  const lastThreeParts = parts.slice(-3);
-
-  // 处理每个部分
-  const formattedParts = lastThreeParts.map(part => {
-    // 去除包裹变量的符号 "{}" 或 "${}"
-    let cleanedPart = part.replace(/[{${}]/g, '');
-
-    // 去除连接符 "-" 和 "_"
-    cleanedPart = cleanedPart.split(/[-_]/g).map((str, index) => {
-      if (index > 0) {
-        str = str.charAt(0).toUpperCase() + str.slice(1);
-      }
-      return str
-    }).join('');
-
-    // 转换为大驼峰
-    return cleanedPart.charAt(0).toUpperCase() + cleanedPart.slice(1);
-  });
-
-  // 合并成一个字符串
-  return formattedParts.join('');
-}
+import * as utils from './utils'
+import { cnToPinyin, firstToLocaleUpperCase } from '../helpers/helper'
 
 /**
  * 创建一个文件，包含api方法和接口定义
@@ -56,165 +17,70 @@ function convertPathToPascalCase(path: string): string {
  * @param axiosQuote axios引用
  * @returns Promise<void>
  */
-export async function createFile(commonPath: string, apiUri: vscode.Uri, InterfaceUri: vscode.Uri, type: treeItemType, apiDetailGather: ApiDetailGather[], axiosQuote: string): Promise<void> {
+export async function createFile(
+  commonPath: string,
+  apiUri: vscode.Uri,
+  InterfaceUri: vscode.Uri,
+  type: treeItemType,
+  apiDetailGather: ApiDetailGather[],
+  axiosQuote: string
+): Promise<void> {
   try {
-    const apiStat = await fsExtra.pathExists(apiUri.fsPath);
-    const interfaceStat = await fsExtra.pathExists(InterfaceUri.fsPath);
-    const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-    let petterSetting = {
-      semi: false,
-      singleQuote: true,
-      parser: "typescript"
-    }
-    try {
-      petterSetting = { ...petterSetting, ...JSON.parse(setting.configInfo?.prettierSetting || '{}') }
-    } catch (error: any) {
-      console.log('----->error', error)
-      FeedbackHelper.logErrorToOutput(`请检查petter配置: ${error}`);
-    }
-    console.log('----->setting.configInfo?.prettierSetting', setting.configInfo?.prettierSetting, typeof setting.configInfo?.prettierSetting, petterSetting)
+    // 检查文件是否存在
+    const apiFileExists = await fsExtra.pathExists(apiUri.fsPath);
+    const interfaceFileExists = await fsExtra.pathExists(InterfaceUri.fsPath);
 
-    // 所有接口相关使用的interface集合
-    const allInterfaceName = Array.from(new Set(
-      apiDetailGather.flatMap(cur => [
-        cur.interfaceQueryName,
-        cur.interfacePathQueryName,
-        cur.interfaceBodyQueryName,
-        cur.interfaceResName
-      ].filter(Boolean))
-    )).sort().join(',')
-    const apiFunctionStr = apiDetailGather.reduce((prev, cur) => {
-      return prev + cur.apiFunctionContext;
-    }, '')
-    const isNeedQs = apiFunctionStr.includes('${qs.stringify(')
-    const apiFunctionHead = `
-      ${isNeedQs ? 'import qs from \'qs\'' : ''}
-      import type { AxiosRequestConfig } from 'axios'
-      import type { ${allInterfaceName} } from './interface'
-      ${axiosQuote}
-      type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
-    `
-    // 拼接所有接口方法
-    const allFunctionContext = apiFunctionHead + apiFunctionStr
+    // 加载配置
+    const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {};
+    const petterSetting = utils.getPrettierSetting(setting);
 
-    // 拼接所有接口类型
-    const allInterfaceContext = apiDetailGather.reduce((prev, cur) => {
-      return prev + cur.apiInterfaceContext;
-    }, '')
+    // 获取所有接口名称和函数字符串
+    const allInterfaceName = utils.getAllInterfaceNames(apiDetailGather);
+    const apiFunctionStr = apiDetailGather.map((cur) => cur.apiFunctionContext).join('');
+    const isNeedQs = apiFunctionStr.includes('${qs.stringify(');
 
-    let formattedFunCode = allFunctionContext
+    // 构建 API 文件头部和完整内容
+    const apiFunctionHead = utils.buildApiFunctionHead(allInterfaceName, axiosQuote, isNeedQs);
+    const allFunctionContext = apiFunctionHead + apiFunctionStr;
+
+    // 构建接口类型内容
+    const allInterfaceContext = apiDetailGather.map((cur) => cur.apiInterfaceContext).join('');
+
     // 格式化代码
-    try {
-      formattedFunCode = await prettier.format(allFunctionContext, petterSetting);
-    } catch (error: any) {
-      FeedbackHelper.logErrorToOutput(`代码格式化失败，请检查petter配置: ${error}`);
-    }
-    console.log('------>', formattedFunCode)
-    let formattedInterfaceCode = allInterfaceContext
-    try {
-      formattedInterfaceCode = await prettier.format(allInterfaceContext, petterSetting);
-    } catch (error) {
-      FeedbackHelper.logErrorToOutput(`代码格式化失败，请检查petter配置: ${error}`);
-    }
-    console.log('------>formattedInterfaceCode', formattedInterfaceCode, allInterfaceContext)
+    const formattedFunCode = await utils.formatCode(allFunctionContext, petterSetting, '函数代码');
+    const formattedInterfaceCode = await utils.formatCode(allInterfaceContext, petterSetting, '接口定义代码');
 
-    // 如果接口方法的文件已存在
-    if (apiStat) {
-      // 更新模块，先备份原文件，生成新文件成功之后删除原文件，生成失败则恢复源文件
+    // 如果文件已存在，执行备份、写入和恢复逻辑
+    if (apiFileExists) {
       if (type === 'apiDetailFolder') {
-        try {
-          await vscode.workspace.fs.rename(apiUri, apiUri.with({ path: apiUri.path + '.bak' }));
-          await vscode.workspace.fs.writeFile(apiUri, Buffer.from(formattedFunCode));
-          await vscode.workspace.fs.delete(apiUri.with({ path: apiUri.path + '.bak' }));
-          if (interfaceStat) {
-            await vscode.workspace.fs.rename(InterfaceUri, InterfaceUri.with({ path: InterfaceUri.path + '.bak' }));
-            await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(formattedInterfaceCode));
-            await vscode.workspace.fs.delete(InterfaceUri.with({ path: InterfaceUri.path + '.bak' }));
-          }
-        } catch (error) {
-          const apiBakStat = await fsExtra.pathExists(apiUri.with({ path: apiUri.path + '.bak' }).fsPath);
-          const interfaceBakStat = await fsExtra.pathExists(InterfaceUri.with({ path: InterfaceUri.path + '.bak' }).fsPath);
-          console.log('----->apiBakStat', apiBakStat, apiUri.with({ path: apiUri.path + '.bak' }).fsPath)
-          if (apiBakStat) {
-            await vscode.workspace.fs.rename(apiUri.with({ path: apiUri.path + '.bak' }), apiUri);
-          }
-          if (interfaceBakStat) {
-            await vscode.workspace.fs.rename(InterfaceUri.with({ path: InterfaceUri.path + '.bak' }), InterfaceUri);
-          }
-          FeedbackHelper.logErrorToOutput(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`);
-          throw new Error(`Failed to create file at: ${error || 'Unknown error'}`);
+        await utils.backupAndReplace(apiUri, formattedFunCode);
+        if (interfaceFileExists) {
+          await utils.backupAndReplace(InterfaceUri, formattedInterfaceCode);
         }
       } else {
-        // 检查文件中是否存在这个函数及该函数相关的接口引用，如果不存在，则写入相应内容，如存在则将其替换为新的内容
-        const updatedApiContent = await updateFileContent(apiUri, formattedFunCode, "function");
-        await vscode.workspace.fs.writeFile(apiUri, Buffer.from(updatedApiContent));
-        const updatedInterfaceContent = await updateFileContent(InterfaceUri, formattedInterfaceCode, "interface");
-        await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(updatedInterfaceContent));
+        apiDetailGather.forEach(async (item) => {
+          await utils.updateExistingFiles(apiUri, item, petterSetting);
+          await utils.updateExistingFiles(InterfaceUri, item, petterSetting, true);
+        });
+        // await utils.updateExistingFiles(apiUri, InterfaceUri, interfaceFileExists, apiDetailGather, petterSetting);
       }
     } else {
-      // 如果接口方法的文件不存在
-      // 生成新文件
-      await vscode.workspace.fs.writeFile(apiUri, Buffer.from(formattedFunCode));
-      await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(formattedInterfaceCode));
-      // await fsExtra.ensureFile(apiUri.fsPath);
-      // await fsExtra.writeFile(apiUri.fsPath, JSON.stringify(apiUri), { encoding: 'utf-8' });
+      // 文件不存在则直接写入
+      await utils.createNewFiles(apiUri, InterfaceUri, formattedFunCode, formattedInterfaceCode);
     }
-    console.log('------>filePath', apiStat, interfaceStat, type, apiUri)
   } catch (error) {
-    FeedbackHelper.logErrorToOutput(`Failed to create file ${apiUri.path}: ${error || '未知错误'}`);
-    throw new Error(`Failed to create file at: ${error || 'Unknown error'}`);
+    FeedbackHelper.logErrorToOutput(`创建文件失败 ${apiUri.path}: ${error || '未知错误'}`);
+    throw new Error(`创建文件失败: ${error || '未知错误'}`);
   }
 }
 
-// 检查并更新文件内容
-async function updateFileContent(uri: vscode.Uri, newContent: string, contentType: "function" | "interface"): Promise<string> {
-  const fileContentBuffer = await vscode.workspace.fs.readFile(uri);
-  const fileContent = fileContentBuffer.toString();
-
-  const contentExists = contentType === "function"
-    ? hasFunctionDefinition(fileContent, newContent)
-    : hasInterfaceDefinition(fileContent, newContent);
-
-  if (contentExists) {
-    return replaceExistingContent(fileContent, newContent, contentType);
-  } else {
-    return fileContent + "\n" + newContent;
-  }
-}
-
-// 检查函数定义是否存在
-function hasFunctionDefinition(fileContent: string, functionContent: string): boolean {
-  const functionName = extractFunctionName(functionContent);
-  const regex = new RegExp(`export const ${functionName}\\s*=`, 'g');
-  return regex.test(fileContent);
-}
-
-// 检查接口定义是否存在
-function hasInterfaceDefinition(fileContent: string, interfaceContent: string): boolean {
-  const interfaceName = extractInterfaceName(interfaceContent);
-  const regex = new RegExp(`export interface ${interfaceName}\\s*{`, 'g');
-  return regex.test(fileContent);
-}
-
-// 替换现有内容
-function replaceExistingContent(fileContent: string, newContent: string, contentType: "function" | "interface"): string {
-  const name = contentType === "function" ? extractFunctionName(newContent) : extractInterfaceName(newContent);
-  const regex = new RegExp(`export ${contentType} ${name}[^]*?(?=export|$)`, 'g');
-  return fileContent.replace(regex, newContent);
-}
-
-// 提取函数名称
-function extractFunctionName(functionContent: string): string {
-  const match = functionContent.match(/export const (\w+)\s*=/);
-  return match ? match[1] : "";
-}
-
-// 提取接口名称
-function extractInterfaceName(interfaceContent: string): string {
-  const match = interfaceContent.match(/export interface (\w+)\s*{/);
-  return match ? match[1] : "";
-}
-
+/**
+ * 生成文件
+ *
+ * @param filePathList 文件路径列表
+ * @param type 树项类型
+ * @param progress 进度
+ */
 export async function generateFile(filePathList: PathApiDetail[], type: treeItemType, progress: vscode.Progress<{ message?: string, increment?: number }>) {
   const apiDetailList: ApiDetailListData[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDetailList')?.data || []
   const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
@@ -236,38 +102,46 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
   }
   for (let i = 0, len = filePathList.length; i < len; i++) {
     try {
-      const { path, api } = filePathList[i];
-      const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${path}`
+      const { path, api, pathArr } = filePathList[i];
+      let relativePath = path;
+      if (setting.configInfo?.useProjectName) {
+        const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
+        console.log('------>projectList', projectList)
+        const projectIds = setting.configInfo.projectId || []
+        const projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
+        pathArr.splice(1, 0, utils.convertPathToPascalCase(cnToPinyin(projectName)).trim())
+        relativePath = pathArr.join('/');
+      }
+      const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${relativePath}`
       const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
       const funInterfacePath = vscode.Uri.file(`${commonPath}/interface.ts`)
       const apiDetailGather = api.map(item => {
-        const apiFunctionName = `${item.method}${convertPathToPascalCase(item.path)}`
-        const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${convertPathToPascalCase(item.path)}}`
+        const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`
+        const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${utils.convertPathToPascalCase(item.path)}}`
         const apiDetailItem: Partial<ApiDetailListData> = apiDetailList.find(detail => detail.id === item.id) || {}
-        const { fun, interFace } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote)
+        const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote)
         return {
           ...item,
           apiFunctionName,
           useApiFunctionName,
           apiFunctionPath,
-          apiFunctionContext: fun,
-          apiInterfaceContext: interFace,
+          apiFunctionContext,
+          apiInterfaceContext,
           interfaceQueryName: (apiDetailItem?.parameters?.query || []).length ? `${apiFunctionName}Query` : '',
           interfaceResName: `${apiFunctionName}Res`,
           interfacePathQueryName: (apiDetailItem?.parameters?.path || []).length > 1 ? `${apiFunctionName}PathQuery` : '',
           interfaceBodyQueryName: (apiDetailItem?.requestBody?.parameters || []).length || apiDetailItem?.requestBody?.jsonSchema ? `${apiFunctionName}Body` : '',
         }
       })
-      console.log('------>apiDetailGather', apiDetailGather)
+
       await createFile(commonPath, apiFunctionPath, funInterfacePath, type, apiDetailGather, axiosQuote)
-      console.log('------>funApiPath', apiFunctionPath, funInterfacePath)
       createSuccessFiles.push(apiFunctionPath.path)
       createSuccessFiles.push(funInterfacePath.path)
       const process = (i / filePathList.length) * 100
       progress.report({ increment: process, message: `已完成 ${Math.round(process)}%` });
     } catch (error) {
-      console.error('----->error', error)
       FeedbackHelper.showError(`文件生成失败: ${error || 'Unknown error'}`)
+      FeedbackHelper.logErrorToOutput(`文件生成失败: ${error || 'Unknown error'}`)
       continue
     }
   }
@@ -275,344 +149,75 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
   createSuccessFiles.length && FeedbackHelper.showFileCreationResults(createSuccessFiles)
 }
 
-const nameFormatter = (name: string) => {
-  return ['.', '[', ']', '-'].some(item => name.includes(item)) ? `\"${name}\"` : name
-}
+/**
+ * 构建方法模板
+ *
+ * @param apiFunctionName API 函数名称
+ * @param useApiFunctionName 使用的 API 函数名称
+ * @param apiModel API 模型类型
+ * @param apiDetailItem API 详细列表数据
+ * @param axiosQuote axios 引用
+ * @returns 包含函数和接口的对象
+ */
+function buildMethodTemplate(
+  apiFunctionName: string,
+  useApiFunctionName: string,
+  apiModel: apiModelType,
+  apiDetailItem: Partial<ApiDetailListData>,
+  axiosQuote: string
+): { fun: string, interFace: string } {
+  // 提取参数信息
+  const pathParams = apiDetailItem?.parameters?.path || [];
+  const queryParams = apiDetailItem?.parameters?.query || [];
+  const apiDetailParams: ApiDetailParametersQuery[] = [...pathParams, ...queryParams];
+  const haveReqBody = Boolean((apiDetailItem?.requestBody?.parameters || []).length || apiDetailItem?.requestBody?.jsonSchema);
+  const axiosAlias = utils.extractVariableName(axiosQuote) || '';
+  const apiPath = utils.convertToTemplateString(apiDetailItem.path || '', pathParams);
+  const apiMethod = apiDetailItem.method || 'get';
+  const responses = apiDetailItem?.responses?.find(res => +res.code === 200) || {};
 
-// 构建方法模版
-function buildMethodTemplate(apiFunctionName: string, useApiFunctionName: string, apiModel: apiModelType, apiDetailItem: Partial<ApiDetailListData>, axiosQuote: string): { fun: string, interFace: string } {
-  const pathParams = apiDetailItem?.parameters?.path || [] // 拼接在url路径上的动态参数
-  const queryParams = apiDetailItem?.parameters?.query || [] // 正常的query参数
-  const apiDetailParams: ApiDetailParametersQuery[] = [...pathParams, ...queryParams]
-  const haveReqBody = (apiDetailItem?.requestBody?.parameters || []).length || apiDetailItem?.requestBody?.jsonSchema
-  const axiosAlias = extractVariableName(axiosQuote)
-  const apiPath = convertToTemplateString(apiDetailItem.path || '', pathParams)
-  const apiMethod = apiDetailItem.method || 'get'
-  const responses = apiDetailItem?.responses?.find(res => +res.code === 200) || {}
-  console.log('---->apiDetailItem', apiDetailItem, apiDetailParams)
-  console.log('----->axiosAlias', axiosAlias, axiosQuote)
+  // 构建接口
+  const exportInterfaceQuery = utils.buildInterfaceQuery(apiFunctionName, apiDetailItem, queryParams);
+  const exportInterfaceBody = utils.buildInterfaceBody(apiFunctionName, apiDetailItem, haveReqBody);
+  const exportInterfacePathQuery = utils.buildInterfacePathQuery(apiFunctionName, apiDetailItem, pathParams);
+  const exportInterfaceRes = utils.buildInterfaceResponse(apiFunctionName, apiDetailItem, responses);
 
-  const exportInterfaceQuery = queryParams.length ? `
-      /**
-       * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口请求Query参数
-       * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
-      */
-      export interface ${apiFunctionName}Query {
-        ${queryParams.reduce((acc, cur) => {
-    return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
-          `
-  }, '')} [key: string]: any
-      }
-      ` : ''
+  const exportInterface = `${exportInterfaceQuery}${exportInterfacePathQuery}${exportInterfaceBody}${exportInterfaceRes}`;
 
-  const exportInterfaceBody = haveReqBody ? `
-      /**
-       * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口请求Body参数
-       * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
-      */
-      ${buildParametersSchema(apiDetailItem?.requestBody || {}, `${apiFunctionName}Body`)}
-      ` : ''
+  // 构造函数描述和请求主体
+  const description = utils.buildDescription(apiFunctionName, apiDetailItem);
+  const apiFunctionSignature = utils.buildApiFunctionSignature(apiFunctionName, pathParams, queryParams, haveReqBody, apiMethod);
+  const apiFunctionBody = utils.buildApiFunctionBody(apiMethod, axiosAlias, apiPath, apiDetailParams, haveReqBody, queryParams, apiDetailItem);
 
-  const exportInterfacePathQuery = pathParams.length > 1 ? `
-      /**
-       * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口路径参数
-       * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
-      */
-      export interface ${apiFunctionName}PathQuery {
-        ${pathParams.reduce((acc, cur) => {
-    return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
-          `
-  }, '')} [key: string]: any
-      }
-      ` : ''
-
-  const exportInterfaceRes = `
-      /**
-       * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}--接口返回值
-       * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
-      */
-      ${buildParametersSchema(responses || {}, `${apiFunctionName}Res`)}
-     `
-  const exportInterface = exportInterfaceQuery + exportInterfacePathQuery + exportInterfaceBody + exportInterfaceRes
-  console.log('----->apiDetailParams.length', apiDetailParams.length, exportInterface)
-
-  // 构造注释部分
-  const description = `/**
-   * @description ${apiDetailItem.tags?.join('/')}/${apiDetailItem.name}
-   * @url ${apiMethod.toLocaleUpperCase()} ${apiDetailItem.path}
-   * @host https://app.apifox.com/link/project/${apiDetailItem.projectId}/apis/api-${apiDetailItem.id}
-   */`;
-
-  // 构造请求方法主体
-  const apiFunction = () => {
-    const args = []
-    if (pathParams.length) {
-      if (pathParams.length > 1) {
-        args.push(`pathParams: Expand<${apiFunctionName}PathQuery>`)
-      } else {
-        args.push(`${pathParams[0].name}: ${buildParameters(pathParams[0])}`)
-      }
-    }
-    if (queryParams.length) {
-      args.push(`params: Expand<${apiFunctionName}Query>`)
-    }
-    if (!apiTypeCollection.includes(apiDetailItem.method || 'get') && haveReqBody) {
-      args.push(`data: Expand<${apiFunctionName}Body>`)
-    }
-    args.push('axiosConfig?: AxiosRequestConfig')
-    const argsStr = args.join(', ')
-
-    return `export const ${apiFunctionName} = async (${argsStr}): Promise<Expand<${apiFunctionName}Res>> => {`
-  }
-
-
-  // 构造API请求路径
-  const apiFunctionBody = () => {
-    const url = apiDetailParams.length ? `\`${apiPath || ''}${queryParams.length ? '?${qs.stringify(params)}' : ''}\`` : `'${apiDetailItem.path || ''}'`
-    const bodyParams = apiTypeCollection.includes(apiDetailItem.method || 'get') ? '' : haveReqBody ? 'data, ' : `{}, `
-    return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}axiosConfig);`
-  }
+  // 定义请求方式处理器
   const handler = {
     axios: () => ({
-      fun: `
-        ${description}
-        ${apiFunction()}
-          ${apiFunctionBody()}
-        }
-      `,
+      fun: `\n  \n${description}\n${apiFunctionSignature}\n  ${apiFunctionBody}\n}`,
     }),
-    vueUse: () => ({
-      fun: ``,
-    }),
-    VueHookPlus: () => ({
-      fun: ``,
-    }),
-    wx: () => ({
-      fun: ``,
-    }),
-    custom: () => ({
-      fun: ``,
-    })
-  }
-  console.log('-------->handler[apiModel]()', handler[apiModel]().fun)
-  return { ...handler[apiModel](), interFace: exportInterface }
-}
-
-// 递归函数，用于生成接口参数
-function transformSchema(jsonSchema: Record<string, any>, interfaceName: string): string {
-  let res = '';
-  let childrenRes = '';
-  const apiDataSchemas: ApiDataSchemasItem[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || [];
-  const schemaTypes = ['object', 'array'];
-
-  const processedRefs = new Set<string>();
-  const processedInterfaces = new Set<string>();
-
-  const isSchema = (propertiesObj: Record<string, any>) => {
-    return schemaTypes.includes(propertiesObj?.type || 'any') || propertiesObj?.$ref;
+    vueUse: () => ({ fun: '' }),
+    VueHookPlus: () => ({ fun: '' }),
+    wx: () => ({ fun: '' }),
+    custom: () => {
+      const options = {
+        pathParams,
+        pathParamsType: `${apiFunctionName}PathQuery`,
+        queryParams,
+        queryParamsType: `${apiFunctionName}Query`,
+        apiMethod,
+        apiReturnType: `${apiFunctionName}Res`,
+        haveReqBody,
+        dataParamsType: `${apiFunctionName}Body`,
+        apiFunctionName,
+        extraFunctionName: `use${firstToLocaleUpperCase(apiFunctionName)}`,
+        apiPath
+      }
+      const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`
+      const customFunction = utils.customFunctionReturn(options, description, defaultFunction) || ''
+      return {
+        fun: customFunction,
+      }
+    },
   };
 
-  const output = (obj: Record<string, any>, faceName: string): string => {
-    if (obj.$ref) {
-      const refId = obj.$ref.split('/').pop();
-      if (!refId || processedRefs.has(refId)) return '';
-      processedRefs.add(refId);
-
-      const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
-      return output(schema, faceName);
-    }
-
-    const type = obj?.type || 'object';
-    if (type === 'object') {
-      let resStr = '';
-      const { 'x-apifox-orders': keys = [], required = [], properties = {} } = obj;
-
-      for (const key of keys) {
-        const property = properties[key];
-        if (property['x-tmp-pending-properties']) continue;
-
-        const title = property.title || '';
-        const isRequired = required.includes(key);
-        const typeStr = buildPropertyType(property, key, faceName);
-
-        resStr += `
-          /** ${title} */
-          ${nameFormatter(key)}${isRequired ? '' : '?'}: ${typeStr};`;
-      }
-      return resStr;
-    } else if (type === 'array') {
-      const { items } = obj;
-      return schemaTypes.includes(items.type) ? output(items, faceName) : buildParameters(items);
-    } else {
-      return buildParameters(obj);
-    }
-  };
-
-  res = `
-    export interface ${interfaceName} {
-      ${output(jsonSchema, interfaceName)}
-      [key: string]: any
-    }
-  `;
-
-  function buildPropertyType(property: Record<string, any>, key: string, faceName: string) {
-    if (isSchema(property)) {
-      if (property.type === 'array') {
-        return isSchema(property.items)
-          ? `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`
-          : `${property.items?.type || 'any'}[]`;
-      } else {
-        if (property?.$ref) {
-          const refId = property.$ref.split('/').pop();
-          console.log('------>已存在ref', refId, processedRefs);
-          if (!refId || processedRefs.has(refId)) return '';
-          processedRefs.add(refId);
-          const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
-          return `${buildChildrenOutput(schema, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
-        }
-        return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
-      }
-    } else {
-      return buildParameters(property);
-    }
-  }
-
-  function buildChildrenOutput(childrenObj: Record<string, any>, childrenFaceName: string): string {
-    const type = childrenObj?.type || 'any';
-    const childrenInterface = type === 'array' ? `${childrenFaceName}Item[]` : childrenFaceName;
-    const childrenInterfaceName = type === 'array' ? `${childrenFaceName}Item` : childrenFaceName;
-
-    const getRefObj = (ref: string): Record<string, any> => {
-      const refId = ref.split('/').pop() || '';
-      console.log('------>已存在refId----', refId, processedRefs, childrenInterfaceName, processedInterfaces);
-      if (!refId || processedRefs.has(refId)) return {};
-      processedRefs.add(refId);
-      const schema = apiDataSchemas.find(item => item.id === +refId)?.jsonSchema || {};
-      return schema;
-    }
-
-    const noRef = childrenObj?.$ref || childrenObj?.items?.$ref ? getRefObj(childrenObj.$ref || childrenObj?.items?.$ref) : childrenObj;
-    if (!processedInterfaces.has(childrenInterfaceName)) {
-      processedInterfaces.add(childrenInterfaceName);
-
-      let childrenResStr = type === 'string' ? `
-        /** ${noRef.title || ''}${noRef.description || ''} */
-        export type ${childrenInterfaceName} = ${buildParameters(noRef)}
-      ` : `
-        /** ${noRef.title || ''}${noRef.description || ''} */
-        export interface ${childrenInterfaceName} {
-          ${output(noRef, childrenFaceName)}
-          [key: string]: any
-        }
-      `;
-      childrenRes += childrenResStr;
-    }
-
-    return childrenInterface;
-  }
-
-  return res + childrenRes;
-}
-
-function buildParametersSchema(configObj: Record<string, any>, interfaceName: string): string {
-  if (!configObj) {
-    return `
-      export interface ${interfaceName} {
-        [key: string]: any
-      }
-    `;
-  } else if (configObj.jsonSchema) {
-    return transformSchema(configObj.jsonSchema, interfaceName);
-  } else {
-    const bodyParameters: any[] = configObj.parameters || [];
-    return `
-      export interface ${interfaceName} {
-        ${bodyParameters.reduce((acc, cur) => {
-      return acc + `${cur.description ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ''} */` : ''}
-            ${nameFormatter(cur.name)}${cur.required ? '' : '?'}: ${buildParameters(cur)}
-          `;
-    }, '')} [key: string]: any
-      }
-    `;
-  }
-}
-
-// 构建参数模版
-function buildParameters(parameters: ApiDetailParametersQuery): string {
-  console.log('-------->buildParameters', parameters)
-  const schema = parameters?.schema || undefined
-  const typeMap = {
-    'date-time': () => 'Date',
-    'date': () => 'Date',
-    'string': () => {
-      if (parameters?.enum) {
-        return parameters.enum.map(item => `'${item}'`).join(' | ')
-      }
-      return 'string'
-    },
-    'integer': () => 'number',
-    'int64': () => 'number',
-    'int32': () => 'number',
-    'number': () => 'number',
-    'boolean': () => 'boolean',
-    'array': (): string => {
-      if (schema && schema?.items) {
-        const resType: keyof typeof typeMap = schema.items?.format || schema.items?.type || 'string'
-        return `${typeMap[resType] ? typeMap[resType]() : 'any'}[]`
-      }
-      return 'string[]'
-    },
-    'file': () => 'File | Blob | ArrayBuffer | Uint8Array',
-  }
-  type TypeMapKey = keyof typeof typeMap
-  return schema?.type ? typeMap[schema.type as TypeMapKey]() : parameters.type ? typeMap[parameters.type as TypeMapKey]() || 'any' : 'string'
-}
-
-/**
- * 从导入语句中提取变量名
- *
- * @param importStatement 导入语句字符串
- * @returns 返回提取到的变量名，若未提取到则返回null
- */
-function extractVariableName(importStatement: string): string | null {
-  const patterns = [
-    /import\s+([a-zA-Z_$][\w$]*)\s+from\s+['"][^'"]+['"]/, // import axios from "axios"
-    /import\s+([a-zA-Z_$][\w$]*)\s+as\s+([a-zA-Z_$][\w$]*)\s+from\s+['"][^'"]+['"]/, // import axios as http from "axios"
-    /const\s+([a-zA-Z_$][\w$]*)\s*=\s*require\s*\(\s*['"][^'"]+['"]\s*\)/, // const axios = require("axios")
-    /let\s+([a-zA-Z_$][\w$]*)\s*=\s*require\s*\(\s*['"][^'"]+['"]\s*\)/, // let axios = require("axios")
-    /var\s+([a-zA-Z_$][\w$]*)\s*=\s*require\s*\(\s*['"][^'"]+['"]\s*\)/ // var axios = require("axios")
-  ];
-
-  for (const pattern of patterns) {
-    const match = importStatement.match(pattern);
-    if (match) {
-      // 处理 import ... as ... 的特殊情况
-      return match[1] || match[2] || null;
-    }
-  }
-
-  return null;
-}
-
-/**
- * 将字符串中的 {var} 替换为模板字符串 ${var}，如果已经是 ${var} 则不进行替换。
- * 如果传递的 pathParams 长度大于 1，则将 {var} 替换为 ${pathParams.varName}
- *
- * @param path 待转换的字符串
- * @param pathParams 路径参数数组
- * @returns 转换后的模板字符串
- */
-function convertToTemplateString(path: string, pathParams: Record<string, any>[]) {
-  // 如果 pathParams 的长度大于 1，使用 'pathParams.varName' 作为变量名称前缀
-  const usePathParamsPrefix = pathParams.length > 1;
-
-  return path.replace(/{(\w+)}/g, (_, varName) => {
-    // 构建最终的模板字符串，考虑是否加上 'pathParams.' 前缀
-    const templateVar = usePathParamsPrefix ? `pathParams.${varName}` : varName;
-
-    // 如果字符串中已经包含 ${templateVar}，则不进行替换
-    return path.includes(`\${${templateVar}}`) ? `{${varName}}` : `\${${templateVar}}`;
-  });
+  return { ...handler[apiModel](), interFace: exportInterface };
 }

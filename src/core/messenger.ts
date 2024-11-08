@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/core/messenger.ts
  * @Description: 
  */
+/// <reference path="../global.d.ts" />
 import * as vscode from 'vscode'
 import { checkFolderOrFileExists, getText, getCurrentWorkspaceStructure, updateFileContent, withProgressWrapper, findSubtreePath, getPathsAndApiDetails } from './helpers/helper'
 import { SETTING_FILE_URL } from '../constant/index'
