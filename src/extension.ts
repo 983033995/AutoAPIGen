@@ -57,7 +57,6 @@ export function activate(context: vscode.ExtensionContext) {
             configPagePanel.title = title;
             const iconPath = vscode.Uri.joinPath(context.extensionUri, 'dist/compiled', 'system-update.png')
             configPagePanel.iconPath = iconPath;
-            
             configPagePanel.webview.html = generateConfigPage(configPagePanel.webview, context)
 
             configPagePanel.onDidDispose(() => {

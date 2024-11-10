@@ -35,8 +35,8 @@ export async function createFile(
     const petterSetting = utils.getPrettierSetting(setting);
 
     // 获取所有接口名称和函数字符串
-    const allInterfaceName = utils.getAllInterfaceNames(apiDetailGather);
     const apiFunctionStr = apiDetailGather.map((cur) => cur.apiFunctionContext).join('');
+    const allInterfaceName = utils.getAllInterfaceNames(apiDetailGather, apiFunctionStr);
     const isNeedQs = apiFunctionStr.includes('${qs.stringify(');
 
     // 构建 API 文件头部和完整内容
@@ -209,7 +209,8 @@ function buildMethodTemplate(
         dataParamsType: `${apiFunctionName}Body`,
         apiFunctionName,
         extraFunctionName: `use${firstToLocaleUpperCase(apiFunctionName)}`,
-        apiPath
+        apiPath,
+        log: FeedbackHelper.logErrorToOutput
       }
       const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`
       const customFunction = utils.customFunctionReturn(options, description, defaultFunction) || ''
