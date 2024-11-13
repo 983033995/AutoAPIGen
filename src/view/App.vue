@@ -353,7 +353,12 @@ window.addEventListener('message', (event) => {
                       <span class="icon-[mdi--more-vert] hidden group-hover:block "></span>
                       <template #content>
                         <a-doption value="generate">{{ t('operate1') }}</a-doption>
-                        <a-doption value="copy">{{ t('operate2') }}</a-doption>
+                        <div v-if="nodeData.type !== 'apiDetailFolder'">
+                          <a-doption value="useQuickly">{{ t('operate5') }}</a-doption>
+                          <a-doption value="copy">{{ t('operate2') }}</a-doption>
+                          <a-doption value="copyImport">{{ t('operate3') }}</a-doption>
+                          <a-doption value="jumpApiFunction">{{ t('operate4') }}</a-doption>
+                        </div>
                       </template>
                     </a-dropdown>
                   </div>

@@ -1,72 +1,45 @@
-<!--
- * @FilePath: /Vue3BaseExtension/README.md
- * @Description:
--->
+# AutoAPIGen-Vsix
 
-# Base Vue 3 侧边栏视图扩展
+## 简介
 
-```html
-<p align="center">
-  <img src="./Screenshot.png" width="350" alt="模板截图" />
-</p>
-```
+AutoAPIGen 是一个用于自动生成 API 代码的 VSCode 插件。它通过解析项目中的 API 配置，生成相应的 TypeScript 接口和函数代码，帮助开发者快速构建 API 层。
 
-Vue 3、Vite 构建的模板可用于创建 VSCode 侧边栏扩展，通过提供结构化代码并利用 vite 构建工具来编译和打包扩展，以便部署到 VSCode。此模板包含您立即开始构建扩展所需的一切。通过这个模板，您可以利用 Vue 3 的特性和功能，为 VSCode 构建强大且交互式的扩展。
+## 功能
 
-## 包含内容
+- **自动生成 API 函数和接口**：根据项目配置自动生成 API 函数和接口定义，一键解放枯燥的 API 编写和接口类型定义工作。（V1.0版本只集成了[apifiox](https://app.apifox.com/)的自动导入功能）
+- **支持多种 API 模型**：支持 `axios`、`vueUse`、`VueHookPlus`、`wx` 和自定义模型。(V1.0版本只做了axios和自定义)
+- **代码格式化**：集成 Prettier 和 ESLint，确保生成的代码符合项目的代码风格。
+- **界面化配置**：通过配置页面，可以方便地配置 API 模型、请求头、路径等信息。
+- **自定义模板**：支持自定义模板，用户可以根据自己的需求定义生成代码的模板。
+- **自动引入**：自动引入生成的代码，在需要的页面直接生成接口引用。
+- **详细的日志**：插件的运行日志会记录在 VSCode 的输出面板中，方便用户查看和调试。
 
-- [x] Typescript
-- [x] Vue 3
-- [x] Vite
-- [x] Tailwindcss
-  - [x] Vscode Default style Tailwind config
-- [x] Iconify via unplugin
-- [x] I18n via unplugin
-- [x] Vitest
-  - [x] Vitest UI
-- [x] Testing Library
-- [x] Decent Linting
-- [x] CircleCI
-- [x] Basic VSCode API Message Examples
+## 安装
 
-## 开始使用
+1. 打开 VSCode。
+2. 进入扩展市场，搜索 `AutoAPIGen`。
+3. 点击安装按钮进行安装。
 
-安装依赖项：
+## 使用方法
 
-- `yarn install`
+1. 打开一个包含 API 配置的项目。
+2. 在命令面板中输入 `AutoAPIGen: Show Config Page` 打开配置页面。
+3. 根据需要调整配置，点击保存。
+4. 在命令面板中输入 `AutoAPIGen: Generate API Files` 生成 API 文件。
 
-修改以下文件：
+## 配置
 
-- `package.json`
-  - 将所有 `AutoAPIGen` 替换为您的扩展 ID
-  - 将所有 `AutoAPIGen` 替换为视图 ID
-  - 将所有 `Auto API Gen Extension` 替换为扩展名称
-  - 将 `default.png` 替换为您自己的扩展图标
+插件的配置文件位于项目的 `.vscode/autoApiGen.json` 中，用户可以在配置文件中设置 API 模型、请求头、路径等信息。
 
-运行扩展：
+## 常见问题
 
-- 在控制台中输入 `yarn watch`
+- **生成失败**：请检查配置文件是否正确，确保所有必需的字段都已填写。
+- **代码格式化错误**：请检查 Prettier 和 ESLint 的配置，确保它们能够正常工作。
 
-- 在 `extension.ts` 上按 `f5` 打开调试窗口（或选择菜单中的“调试”->“运行扩展”）
+## 贡献
 
-- 导航到左侧侧边栏上看到的扩展图标（或打开命令面板（`Ctrl/Cmd + Shift + P`）并选择 `View: Vue 3 Base Extension` 以打开 webview 视图。）
+欢迎对本项目进行贡献！您可以通过提交 Pull Request 或报告 Issue 的方式参与到项目中。
 
-## 推荐的 VSCode 扩展
+## 许可证
 
-- [Vitest](https://marketplace.visualstudio.com/items?itemName=ZixuanChen.vitest-explorer)
-
-- [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar)
-
-- [I18n A11y](https://marketplace.visualstudio.com/items?itemName=Lokalise.i18n-ally)
-
-- [Iconify Intellisense](https://marketplace.visualstudio.com/items?itemName=antfu.iconify)
-
-## 参考资料
-
-- [Webviews](https://code.visualstudio.com/api/extension-guides/webview)
-
-- [UX 指南](https://code.visualstudio.com/api/ux-guidelines/overview)
-
-- [Webview 视图 API](https://code.visualstudio.com/api/references/vscode-api#WebviewView)
-
-- [主题指南](https://code.visualstudio.com/api/references/theme-color)
+本项目采用 MIT 许可证。

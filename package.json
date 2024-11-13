@@ -1,8 +1,9 @@
 {
   "name": "AutoAPIGen",
   "displayName": "AutoAPIGen",
-  "description": "",
-  "version": "0.0.1",
+  "description": "AutoAPIGen 是 VisualStudio 代码扩展，旨在自动生成 API 函数，提高开发效率。它支持 TypeScript 类型化、查询和路径参数处理，并与 Axios 集成以实现无缝 API 请求。对于希望节省时间和避免重复 API 样板代码的开发人员来说是理想选择。",
+  "version": "1.0.1",
+  "publisher": "script",
   "engines": {
     "vscode": "^1.74.0"
   },
@@ -11,12 +12,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/983033995/AutoAPIGen"
+    "url": "https://github.com/983033995/AutoAPIGen-Vsix.git"
   },
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
+    "compile": "concurrently \"tsup\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
     "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
@@ -29,7 +30,7 @@
         {
           "id": "auto-api-gen",
           "title": "AutoAPIGen",
-          "icon": "src/assets/img/default.png"
+          "icon": "dist/compiled/default.png"
         }
       ]
     },
@@ -39,7 +40,7 @@
           "type": "webview",
           "id": "base-view-sidebar",
           "name": "Auto API Gen Extension",
-          "icon": "src/assets/img/default.png",
+          "icon": "dist/compiled/default.png",
           "contextualTitle": "Auto API Gen Extension"
         }
       ]
@@ -52,12 +53,17 @@
       {
         "command": "AutoAPIGen.closeConfigPagePanel",
         "title": "closeConfigPagePanel"
+      },
+      {
+        "command": "AutoAPIGen.copyToClipboard",
+        "title": "Copy Text to Clipboard"
       }
     ],
     "activationEvents": [
       "onView: base-view-sidebar",
       "onCommand:AutoAPIGen.showConfigPagePanel",
-      "onCommand:AutoAPIGen.closeConfigPagePanel"
+      "onCommand:AutoAPIGen.closeConfigPagePanel",
+      "onCommand:AutoAPIGen.copyToClipboard"
     ]
   },
   "dependencies": {
@@ -66,10 +72,15 @@
     "@iconify/tailwind": "^1.1.1",
     "@intlify/unplugin-vue-i18n": "^0.8.1",
     "@monaco-editor/loader": "^1.4.0",
+    "@types/eslint": "^8.50.0",
+    "@types/prettier": "^3.0.0",
     "@vitest/ui": "^0.26.2",
     "@vueuse/core": "^10.11.0",
     "axios": "^1.7.2",
+    "eslint": "^8.50.0",
+    "eslint-plugin-unused-imports": "^4.1.4",
     "fs-extra": "^11.2.0",
+    "json5": "^2.2.3",
     "monaco-editor": "^0.52.0",
     "pinyin-pro": "^3.23.1",
     "prettier": "^3.3.3",
@@ -89,16 +100,16 @@
     "@testing-library/user-event": "^14.4.3",
     "@testing-library/vue": "^6.6.1",
     "@types/jest": "^29.2.4",
-    "@types/node": "^18.11.17",
+    "@types/node": "^22.9.0",
     "@types/vscode": "^1.73.0",
-    "@typescript-eslint/eslint-plugin": "^5.42.0",
-    "@typescript-eslint/parser": "^5.42.0",
+    "@typescript-eslint/eslint-plugin": "^8.13.0",
+    "@typescript-eslint/parser": "^8.13.0",
     "@vitejs/plugin-vue": "^2.3.3",
     "concurrently": "^7.6.0",
-    "eslint": "^8.30.0",
-    "eslint-plugin-vue": "^9.8.0",
+    "eslint-plugin-vue": "^9.30.0",
     "jsdom": "^20.0.3",
     "tailwindcss": "^3.2.4",
+    "tsup": "^8.3.5",
     "typescript": "^4.8.4",
     "unplugin-auto-import": "^0.17.6",
     "unplugin-icons": "^0.14.15",

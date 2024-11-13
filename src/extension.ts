@@ -75,4 +75,16 @@ export function activate(context: vscode.ExtensionContext) {
         }
     })
     context.subscriptions.push(closeConfigPanel)
+
+    // 复制文本内容
+    const copyTextDisposable = vscode.commands.registerCommand('AutoAPIGen.copyToClipboard', async (text: string) => {
+        try {
+          await vscode.env.clipboard.writeText(text);
+          vscode.window.showInformationMessage("文本已复制到剪贴板。");
+        } catch (error) {
+          vscode.window.showErrorMessage("复制到剪贴板时出错：" + error);
+        }
+      });
+    
+      context.subscriptions.push(copyTextDisposable);
 }

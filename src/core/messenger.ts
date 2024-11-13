@@ -12,6 +12,9 @@ import {
   withProgressWrapper,
   findSubtreePath,
   getPathsAndApiDetails,
+  replacePathAlias,
+  revealSymbol,
+  addImportSymbol
 } from "./helpers/helper";
 import { SETTING_FILE_URL } from "../constant/index";
 import {
@@ -24,6 +27,7 @@ import {
 import { getWorkspaceStateUtil } from "./workspace/stateManager";
 import { generateFile } from "../core/create/index";
 import { FeedbackHelper } from "./helpers/feedbackHelper";
+import * as utils from './create/utils'
 
 const workspaceFolders = vscode.workspace.workspaceFolders || [];
 
@@ -63,7 +67,7 @@ const receiveMessages = (
         getWorkspaceState: async () => {
           await getWorkspaceState(webview, context, command, key, data.init);
         },
-        setWorkspaceState: () => {},
+        setWorkspaceState: () => { },
         // 获取当前工作区目录
         getFolders: async () => {
           const folders = await getCurrentWorkspaceStructure(10);
@@ -124,22 +128,34 @@ const receiveMessages = (
         interfaceOperate: async () => {
           console.log("----->interfaceOperate", data);
           const { type, itemType, key } = data as InterfaceOperateData;
+          const apiTreeList =
+            getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data ||
+            [];
+          const treeNode = findSubtreePath(apiTreeList, key);
+          const configInfo =
+            getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
+              ?.configInfo || {};
+          const filePathList = getPathsAndApiDetails(
+            treeNode,
+            key,
+            configInfo.appName
+          );
+          console.log("----->treeNode", treeNode);
+          console.log("----->filePathList", filePathList);
+          const getApiInfo = () => {
+            const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
+              const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
+              const { path: relativePath, api } = filePathList[0]
+              const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${relativePath}`
+              const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
+              const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
+              return {
+                apiFunctionPath,
+                apiFunctionName,
+              }
+          }
           const handler = {
             generate: async () => {
-              const apiTreeList =
-                getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data ||
-                [];
-              const treeNode = findSubtreePath(apiTreeList, key);
-              const configInfo =
-                getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
-                  ?.configInfo || {};
-              const filePathList = getPathsAndApiDetails(
-                treeNode,
-                key,
-                configInfo.appName
-              );
-              console.log("----->treeNode", treeNode);
-              console.log("----->filePathList", filePathList);
               FeedbackHelper.showProgress(
                 "正在生成文件...",
                 async (progress) => {
@@ -152,7 +168,32 @@ const receiveMessages = (
                 }
               );
             },
-            copy: () => {},
+            copy: () => {
+              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', getApiInfo().apiFunctionName);
+            },
+            copyImport: () => {
+              const { apiFunctionPath, apiFunctionName } = getApiInfo()
+              let importPath = apiFunctionPath.path
+              if (configInfo.alias) {
+                const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
+                importPath = replacePathAlias(importPath, target)
+              }
+              const importStr = `import { ${apiFunctionName} } from '${importPath}';`
+              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', importStr);
+            },
+            jumpApiFunction: () => {
+              const { apiFunctionPath, apiFunctionName } = getApiInfo()
+              revealSymbol(apiFunctionPath.fsPath, apiFunctionName)
+            },
+            useQuickly: () => {
+              const { apiFunctionPath: { path }, apiFunctionName } = getApiInfo()
+              let importPath = path
+              if (configInfo.alias) {
+                const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
+                importPath = replacePathAlias(importPath, target)
+              }
+              addImportSymbol(apiFunctionName, importPath.slice(0, -3))
+            }
           };
           handler[type] && (await handler[type]());
         },

@@ -23,7 +23,9 @@
     "prettierSetting": "prettier setting",
     "axiosPath": "axios path",
     "axiosReturnKey": "axios return key",
-    "useProjectName": "use project name"
+    "useProjectName": "use project name",
+    "customReturn": "custom axios return",
+    "alias": "alias"
   },
   "save": "save",
   "tip5": "obtain list",
@@ -31,5 +33,8 @@
   "tip6": "update interface",
   "tip7": "update configuration",
   "operate1": "generation interface",
-  "operate2": "copy interface method"
+  "operate2": "copy interface method",
+  "operate3": "copy interface quote",
+  "operate4": "view interface method",
+  "operate5": "use quickly"
 }

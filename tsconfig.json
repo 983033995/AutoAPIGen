@@ -25,13 +25,13 @@
       "unplugin-icons/types/vue",
       "@intlify/unplugin-vue-i18n/messages",
       "./src/global.d.ts"
-    ]
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+    }
   },
   "include": ["src/**/*", "src/**/*.json", "auto-imports.d.ts", "./src/global.d.ts"],
-  "exclude": ["dist", "node_modules", "vite.config.ts"],
-  "paths": {
-    "@/*": [
-      "./*"
-    ],
-  }
+  "exclude": ["dist", "node_modules", "vite.config.ts"]
 }

@@ -23,7 +23,9 @@
     "prettierSetting": "prettier配置",
     "axiosPath": "axios引用路径",
     "axiosReturnKey": "axios返回数据key",
-    "useProjectName": "使用项目名"
+    "useProjectName": "使用项目名",
+    "customReturn": "自定义axios封装",
+    "alias": "路径别名"
   },
   "save": "保存",
   "tip5": "获取项目列表",
@@ -31,5 +33,8 @@
   "tip6": "更新接口",
   "tip7": "更新配置",
   "operate1": "生成接口",
-  "operate2": "复制接口方法"
+  "operate2": "复制方法名",
+  "operate3": "复制接口引用",
+  "operate4": "查看接口方法",
+    "operate5": "快速使用"
 }

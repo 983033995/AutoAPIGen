@@ -70,6 +70,7 @@ module.exports = defineConfig({
 				config: './src/view/config/index.ts'
 			},
 		},
+		minify: 'esbuild',
 		emptyOutDir: false,
 		outDir: 'dist/compiled'
 	},

@@ -51,6 +51,7 @@ interface ConfigFromModel {
   customReturn?: string
   customExtraFunction?: string
   axiosReturnKey?: string
+  alias?: string
   useProjectName: boolean
 }
 

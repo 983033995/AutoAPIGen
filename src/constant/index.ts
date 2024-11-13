@@ -22,7 +22,8 @@ export const APP_LIST = [
 export const API_MODEL = [
     {
         label: 'vueUse',
-        value: 'vueUse'
+        value: 'vueUse',
+        disabled: true
     },
     {
         label: 'axios',
@@ -30,11 +31,13 @@ export const API_MODEL = [
     },
     {
         label: 'VueHookPlus',
-        value: 'VueHookPlus'
+        value: 'VueHookPlus',
+        disabled: true
     },
     {
         label: 'wx',
-        value: 'wx'
+        value: 'wx',
+        disabled: true
     },
     {
         label: '自定义',

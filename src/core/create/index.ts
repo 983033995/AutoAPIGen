@@ -213,7 +213,7 @@ function buildMethodTemplate(
         log: FeedbackHelper.logErrorToOutput
       }
       const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`
-      const customFunction = utils.customFunctionReturn(options, description, defaultFunction) || ''
+      const customFunction = utils.customFunctionReturn(options, description, defaultFunction, apiFunctionName) || ''
       return {
         fun: customFunction,
       }
