@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as prettier from 'prettier';
-import { ESLint } from 'eslint';
+// import { ESLint } from 'eslint';
 import JSON5 from 'json5';
 
 // 定义 TypeScript 相关规则的关键字，用于过滤规则
@@ -79,46 +79,39 @@ async function formatWithPrettier(text: string, defaultPetterSetting: Record<str
 }
 
 // 使用 ESLint 进行代码修复，并自动应用指定的规则
-async function formatWithEslint(text: string): Promise<string> {
-    const workspaceRoot = getWorkspaceRoot();
-    if (!workspaceRoot) {
-        throw new Error("未找到工作区根目录");
-    }
+// async function formatWithEslint(text: string): Promise<string> {
+//     const workspaceRoot = getWorkspaceRoot();
+//     if (!workspaceRoot) {
+//         throw new Error("未找到工作区根目录");
+//     }
 
-    function eslintInstance(rules: { [key: string]: any }, cwd: string) {
-        return new ESLint({
-            cwd,
-            fix: true,
-            cache: false,
-            overrideConfig: {
-                plugins: ["@typescript-eslint", "import"],
-                env: {
-                    es6: true,
-                    node: true,
-                },
-                parserOptions: {
-                    ecmaVersion: 2020,
-                    sourceType: "module",
-                },
-                rules
-            },
-        })
-    }
-    try {
-        let results = await eslintInstance(getEslintRulesConfig(workspaceRoot).rules, workspaceRoot).lintText(text);
-        let output = results[0]?.output;
-        if (output) {
-            return output;
-        } else {
-            // 尝试使用默认规则进行修复
-            results = await eslintInstance(defaultEslintRules.rules, workspaceRoot).lintText(text);
-            output = results[0]?.output || text;
-            return output
-        }
-    } catch (error: any) {
-        throw new Error(`格式化失败--: ${error.message}`);
-    }
-}
+//     function eslintInstance(rules: { [key: string]: any }, cwd: string) {
+//         return new ESLint({
+//             cwd,
+//             fix: true,
+//             cache: false,
+//             overrideConfig: {
+//                 plugins: ["@typescript-eslint", "import"],
+//                 env: {
+//                     es6: true,
+//                     node: true,
+//                 },
+//                 parserOptions: {
+//                     ecmaVersion: 2020,
+//                     sourceType: "module",
+//                 },
+//                 rules
+//             },
+//         })
+//     }
+//     let output = text;
+//     try {
+//         let results = await eslintInstance(getEslintRulesConfig(workspaceRoot).rules, workspaceRoot).lintText(text);
+//         output = results[0]?.output || text;
+//     } finally {
+//         return output;
+//     }
+// }
 
 // 格式化 TypeScript 内容的主函数
 export async function formatTypescriptText(text: string, defaultPetterSetting: Record<string, any>): Promise<string> {
@@ -127,7 +120,7 @@ export async function formatTypescriptText(text: string, defaultPetterSetting: R
         let formattedText = await formatWithPrettier(text, defaultPetterSetting);
 
         // 使用 ESLint 进行进一步修复
-        formattedText = await formatWithEslint(formattedText);
+        // formattedText = await formatWithEslint(formattedText);
 
         return formattedText;
     } catch (error: any) {

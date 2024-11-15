@@ -35,9 +35,8 @@ export const API_MODEL = [
         disabled: true
     },
     {
-        label: 'wx',
+        label: '微信小程序',
         value: 'wx',
-        disabled: true
     },
     {
         label: '自定义',

@@ -7,6 +7,7 @@ import { firstToLocaleUpperCase } from "../helpers/helper";
 const fsExtra = require("fs-extra");
 import * as utils from "./utils";
 import { formatTypescriptText } from './formatCode'
+import path from "path";
 
 const apiTypeCollection = ["get", "delete", "head", "options"];
 
@@ -281,42 +282,47 @@ export function transformSchema(
         // return `${interfaceName}Item[]`;
     };
     res =
-    jsonSchema.type === "null" ? `export type ${interfaceName} = null` :
-        jsonSchema.type === "object" || jsonSchema.$ref
-            ? `export interface ${interfaceName} {
+        jsonSchema.type === "null" ? `export type ${interfaceName} = null` :
+            jsonSchema.type === "object" || jsonSchema.$ref
+                ? `export interface ${interfaceName} {
         ${output(jsonSchema, interfaceName)}
         [key: string]: any
       }
     `
-            : `export type ${interfaceName} = ${buildArrayReturn()}
+                : `export type ${interfaceName} = ${buildArrayReturn()}
     `;
 
     function buildPropertyType(
         property: Record<string, any>,
         key: string,
         faceName: string
-    ) {
+    ): string {
         if (isSchema(property)) {
             if (property.type === "array") {
                 console.log("------->array---1", property);
                 if (isSchema(property.items)) {
                     if (property.$ref || property.items.$ref) {
-                        const refId =
-                            (property.$ref || property.items.$ref).split("/").pop() || "";
+                        const refId = (property.$ref || property.items.$ref).split("/").pop() || "";
                         if (processedRefs[refId]) {
                             return `${processedRefs[refId]}`;
                         } else {
-                            processedRefs[refId] =
-                                `${faceName}${firstToLocaleUpperCase(key)}`;
-                            const schema =
-                                apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema ||
-                                {};
+                            processedRefs[refId] = `${faceName}${firstToLocaleUpperCase(key)}`;
+                            const schema = apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
                             return `${buildChildrenOutput(schema, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
                         }
                     } else {
                         return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
                     }
                 } else {
+                    if (Array.isArray(property.items.type) && property.items.type.some((item: string) => item === 'object' || item === 'array')) {
+                        if ('$ref' in (property.items as Record<string, any>).properties) {
+                            return buildPropertyType((property.items as Record<string, any>).properties, key, faceName);
+                        } else {
+                            const otherType = property.items.type.filter((item: string) => item !== 'object' && item !== 'array').join(' | ');
+                            property.items.type = property.items.type.includes('object') ? 'object' : 'array';
+                            return `${buildChildrenOutput(property.items, `${faceName}${firstToLocaleUpperCase(key)}`)} | ${otherType}`;
+                        }
+                    }
                     return `${property.items?.type || "any"}[]`;
                 }
             } else {
@@ -331,19 +337,14 @@ export function transformSchema(
                         return processedRefs[refId];
                     }
                     processedRefs[refId] = `${faceName}${firstToLocaleUpperCase(key)}`;
-                    // if (!refId || processedRefs.has(refId)) return '';
-                    // processedRefs.add(refId);
-                    const schema =
-                        apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
+                    const schema = apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
                     return `${buildChildrenOutput(schema, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
                 }
                 console.log("------->array---3", property);
                 return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
             }
         } else {
-            return utils.buildParameters(
-                property as unknown as ApiDetailParametersQuery
-            );
+            return utils.buildParameters(property as unknown as ApiDetailParametersQuery);
         }
     }
 
@@ -535,7 +536,8 @@ export function buildApiFunctionSignature(
     pathParams: ApiDetailParametersQuery[],
     queryParams: ApiDetailParametersQuery[],
     haveReqBody: boolean,
-    apiMethod: string
+    apiMethod: string,
+    isWx: boolean = false,
 ): string {
     const args = [];
     if (pathParams.length) {
@@ -553,8 +555,12 @@ export function buildApiFunctionSignature(
     if (!apiTypeCollection.includes(apiMethod || "get") && haveReqBody) {
         args.push(`data: Expand<${apiFunctionName}Body>`);
     }
-    args.push("axiosConfig?: AxiosRequestConfig");
-    return `export const ${apiFunctionName} = async (${args.join(", ")}): Promise<Expand<${apiFunctionName}Res>> => {`;
+    if (isWx) {
+        args.push("config?: Expand<OtherRequestConfig>");
+    } else {
+        args.push("axiosConfig?: AxiosRequestConfig");
+    }
+    return isWx ? `export const ${apiFunctionName} = async (${args.join(", ")}) => {` : `export const ${apiFunctionName} = async (${args.join(", ")}): Promise<Expand<${apiFunctionName}Res>> => {`;
 }
 
 // 辅助函数：构建函数主体
@@ -576,6 +582,28 @@ export function buildApiFunctionBody(
             ? "data, "
             : `{}, `;
     return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}axiosConfig);`;
+}
+
+// 辅助函数：构建函数主体
+export function buildWxApiFunctionBody(
+    apiMethod: string,
+    apiPath: string,
+    apiFunctionName: string,
+    haveReqBody: boolean,
+    queryParams: ApiDetailParametersQuery[]
+): string {
+    let url = `\`${apiPath}\``
+    let params = '{}'
+    if (['get', 'delete'].includes(apiMethod.toLocaleLowerCase())) {
+        params = queryParams.length ? 'params' : '{}'
+    } else {
+        if (queryParams) {
+            url = `\`${apiPath}${queryParams.length ? "?${qs.stringify(params)}" : ""}\``
+        }
+        params = haveReqBody ? 'data' : '{}'
+    }
+
+    return `return http.${apiMethod.toLocaleLowerCase()}<${apiFunctionName}Res>(${url}, ${params}, config);\n}`;
 }
 
 export function customFunctionReturn(
@@ -683,7 +711,9 @@ export function getAllInterfaceNames(
 export function buildApiFunctionHead(
     allInterfaceName: string,
     axiosQuote: string,
-    isNeedQs: boolean
+    isNeedQs: boolean,
+    rootPath: string,
+    apiPath: string
 ) {
     const heardAnnotation = `/* eslint-disable @typescript-eslint/no-unused-vars */ \n // @ts-nocheck: 忽略类型错误 系统工具生成`
     const settingConfig: ProjectConfigInfo =
@@ -691,6 +721,10 @@ export function buildApiFunctionHead(
     if (settingConfig.model === "custom" && settingConfig.head) {
         const customHead = `${settingConfig.head}\nimport type { ${allInterfaceName} } from './interface';`;
         return `${heardAnnotation}\n${sortImports(customHead)}`;
+    }
+    if (settingConfig.model === "wx") {
+        const importPath = getRelativeImportPath(apiPath, `${rootPath}/request/index.ts`)
+        return `import { http } from "${importPath}";\nimport type { ${allInterfaceName} } from './interface';\ntype Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
     }
     return `
         ${heardAnnotation}
@@ -709,9 +743,9 @@ export async function formatCode(
     codeType: string
 ) {
     try {
-        // await prettier.format(code, petterSetting);
+        return await prettier.format(code, petterSetting);
 
-        return formatTypescriptText(code, petterSetting)
+        // return formatTypescriptText(code, petterSetting)
     } catch (error: any) {
         FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${error}`);
         return code;
@@ -981,4 +1015,27 @@ export function extractFunctionName(functionContent: string): string {
 export function extractInterfaceName(interfaceContent: string): string {
     const match = interfaceContent.match(/export interface (\w+)\s*{/);
     return match ? match[1] : "";
+}
+
+/**
+ * 生成文件 A 中导入文件 B 的相对路径
+ * @param filePathA 文件 A 的绝对路径
+ * @param filePathB 文件 B 的绝对路径
+ * @returns 返回适用于 import 的相对路径
+ */
+export function getRelativeImportPath(filePathA: string, filePathB: string): string {
+    // 确保路径格式统一，防止路径中包含空格或特殊字符造成问题
+    const normalizedFilePathA = path.resolve(filePathA);
+    const normalizedFilePathB = path.resolve(filePathB);
+
+    // 计算相对路径
+    let relativePath = path.relative(path.dirname(normalizedFilePathA), normalizedFilePathB);
+
+    // 确保路径适合 import 语句
+    if (!relativePath.startsWith('.') && !relativePath.startsWith('/')) {
+        relativePath = './' + relativePath;
+    }
+
+    // 移除文件扩展名（仅限 .ts 或 .js 文件，其他扩展名按需调整）
+    return relativePath.replace(/\.[tj]s$/, '');
 }

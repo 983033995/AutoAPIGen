@@ -342,13 +342,16 @@ window.addEventListener('message', (event) => {
                   <span v-if="nodeData.type === 'apiDetailFolder'">
                     <span class="icon-[noto--file-folder]"></span>
                   </span>
+                  <span v-else-if="nodeData.type === 'doc'">
+                    <span class="icon-[hugeicons--google-doc]"></span>
+                  </span>
                   <span v-else :class="apiType[nodeData.api.method as keyof ApiTypeMap].class" class="text-lg font-bold"
                     :style="{ color: apiType[nodeData.api.method as keyof ApiTypeMap].color }"></span>
                   <div class="ml-2 flex-1 mr-2">
                     {{ nodeData?.name }}
                     <span v-if="nodeData.type === 'apiDetailFolder'" class="opacity-60 text-3 ml-[6px]">({{ countAllChildren(nodeData) }})</span>
                   </div>
-                  <div class="cursor-pointer w-8 h-5">
+                  <div class="cursor-pointer w-8 h-5" v-if="nodeData.type !== 'doc'">
                     <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="(val: string) => handleSelectOperate(val, nodeData)">
                       <span class="icon-[mdi--more-vert] hidden group-hover:block "></span>
                       <template #content>

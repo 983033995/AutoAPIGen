@@ -2,7 +2,7 @@
   "name": "AutoAPIGen",
   "displayName": "AutoAPIGen",
   "description": "AutoAPIGen 是 VisualStudio 代码扩展，旨在自动生成 API 函数，提高开发效率。它支持 TypeScript 类型化、查询和路径参数处理，并与 Axios 集成以实现无缝 API 请求。对于希望节省时间和避免重复 API 样板代码的开发人员来说是理想选择。",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publisher": "script",
   "engines": {
     "vscode": "^1.74.0"
@@ -17,7 +17,7 @@
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "concurrently \"tsup\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
+    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
     "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
@@ -30,7 +30,7 @@
         {
           "id": "auto-api-gen",
           "title": "AutoAPIGen",
-          "icon": "dist/compiled/default.png"
+          "icon": "./dist/compiled/default.png"
         }
       ]
     },
@@ -40,7 +40,7 @@
           "type": "webview",
           "id": "base-view-sidebar",
           "name": "Auto API Gen Extension",
-          "icon": "dist/compiled/default.png",
+          "icon": "./dist/compiled/default.png",
           "contextualTitle": "Auto API Gen Extension"
         }
       ]

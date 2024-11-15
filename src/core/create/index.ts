@@ -5,6 +5,7 @@ import { FeedbackHelper } from '../helpers/feedbackHelper'
 const fsExtra = require('fs-extra');
 import * as utils from './utils'
 import { cnToPinyin, firstToLocaleUpperCase } from '../helpers/helper'
+import { envConfig, interfaceDefinition, apiRequest } from '../template/template'
 
 /**
  * 创建一个文件，包含api方法和接口定义
@@ -18,14 +19,15 @@ import { cnToPinyin, firstToLocaleUpperCase } from '../helpers/helper'
  * @returns Promise<void>
  */
 export async function createFile(
-  commonPath: string,
+  rootPath: string,
   apiUri: vscode.Uri,
   InterfaceUri: vscode.Uri,
   type: treeItemType,
   apiDetailGather: ApiDetailGather[],
   axiosQuote: string
-): Promise<void> {
+): Promise<string[]> {
   try {
+    const wxFileList = []
     // 检查文件是否存在
     const apiFileExists = await fsExtra.pathExists(apiUri.fsPath);
     const interfaceFileExists = await fsExtra.pathExists(InterfaceUri.fsPath);
@@ -40,7 +42,7 @@ export async function createFile(
     const isNeedQs = apiFunctionStr.includes('${qs.stringify(');
 
     // 构建 API 文件头部和完整内容
-    const apiFunctionHead = utils.buildApiFunctionHead(allInterfaceName, axiosQuote, isNeedQs);
+    const apiFunctionHead = utils.buildApiFunctionHead(allInterfaceName, axiosQuote, isNeedQs, rootPath, apiUri.fsPath || apiUri.path);
     const allFunctionContext = apiFunctionHead + apiFunctionStr;
 
     // 构建接口类型内容
@@ -49,6 +51,23 @@ export async function createFile(
     // 格式化代码
     const formattedFunCode = await utils.formatCode(allFunctionContext, petterSetting, '函数代码');
     const formattedInterfaceCode = await utils.formatCode(allInterfaceContext, petterSetting, '接口定义代码');
+
+    if (setting.configInfo.model === 'wx') {
+      // 检查微信小程序http请求文件是否存在
+      const wxApiFileExists = await fsExtra.pathExists(`${rootPath}/request/index.ts`);
+      if (!wxApiFileExists) {
+        const uri = (filename: string) => {
+          return vscode.Uri.file(`${rootPath}/request/${filename}`);
+        }
+        const envConfigCode = await utils.formatCode(envConfig, petterSetting, '')
+        const interfaceCode = await utils.formatCode(interfaceDefinition, petterSetting, '')
+        const apiRequestCode = await utils.formatCode(apiRequest, petterSetting, '')
+        await vscode.workspace.fs.writeFile(uri('env.config.ts'), Buffer.from(envConfigCode));
+        await vscode.workspace.fs.writeFile(uri('interface.d.ts'), Buffer.from(interfaceCode));
+        await vscode.workspace.fs.writeFile(uri('index.ts'), Buffer.from(apiRequestCode));
+        wxFileList.push(uri('env.config.ts').path, uri('interface.d.ts').path, uri('index.ts').path)
+      }
+    }
 
     // 如果文件已存在，执行备份、写入和恢复逻辑
     if (apiFileExists) {
@@ -68,6 +87,7 @@ export async function createFile(
       // 文件不存在则直接写入
       await utils.createNewFiles(apiUri, InterfaceUri, formattedFunCode, formattedInterfaceCode);
     }
+    return wxFileList
   } catch (error) {
     FeedbackHelper.logErrorToOutput(`创建文件失败 ${apiUri.path}: ${error || '未知错误'}`);
     throw new Error(`创建文件失败: ${error || '未知错误'}`);
@@ -85,7 +105,7 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
   const apiDetailList: ApiDetailListData[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDetailList')?.data || []
   const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
 
-  const createSuccessFiles = []
+  let createSuccessFiles: string[] = []
 
   const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
 
@@ -112,11 +132,12 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
         pathArr.splice(1, 0, utils.convertPathToPascalCase(cnToPinyin(projectName)).trim())
         relativePath = pathArr.join('/');
       }
-      const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${relativePath}`
+      const rootPath = `${workspaceFoldersPath}${setting.configInfo.path}`
+      const commonPath = `${rootPath}/${relativePath}`
       const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
       const funInterfacePath = vscode.Uri.file(`${commonPath}/interface.ts`)
       const apiDetailGather = api.map(item => {
-        const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`
+        const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`.trim()
         const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${utils.convertPathToPascalCase(item.path)}}`
         const apiDetailItem: Partial<ApiDetailListData> = apiDetailList.find(detail => detail.id === item.id) || {}
         const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote)
@@ -134,7 +155,10 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
         }
       })
 
-      await createFile(commonPath, apiFunctionPath, funInterfacePath, type, apiDetailGather, axiosQuote)
+      const wxFileList = await createFile(rootPath, apiFunctionPath, funInterfacePath, type, apiDetailGather, axiosQuote)
+      if (wxFileList) {
+        createSuccessFiles = createSuccessFiles.concat(wxFileList)
+      }
       createSuccessFiles.push(apiFunctionPath.path)
       createSuccessFiles.push(funInterfacePath.path)
       const process = (i / filePathList.length) * 100
@@ -196,7 +220,13 @@ function buildMethodTemplate(
     }),
     vueUse: () => ({ fun: '' }),
     VueHookPlus: () => ({ fun: '' }),
-    wx: () => ({ fun: '' }),
+    wx: () => {
+      const WxApiFunctionSignature = utils.buildApiFunctionSignature(apiFunctionName, pathParams, queryParams, haveReqBody, apiMethod, true);
+      const wxApi = utils.buildWxApiFunctionBody(apiMethod, apiPath, apiFunctionName, haveReqBody, queryParams)
+      return {
+        fun : `\n  \n${description}\n${WxApiFunctionSignature}\n  ${wxApi}`,
+      }
+    },
     custom: () => {
       const options = {
         pathParams,

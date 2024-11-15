@@ -422,7 +422,7 @@ export function replacePathAlias(fileUrl: string, target: string[]): string {
         fileUrl = target[1] + fileUrl.substring(index + target[0].length);
     }
 
-    return fileUrl;
+    return fileUrl.replace(/\.[tj]s$/, '');
 }
 
 /**
@@ -468,6 +468,93 @@ export async function revealSymbol(filePath: string, symbolName: string) {
  * @param filePath 导入文件的路径
  * @returns 异步函数，无返回值
  */
+// export async function addImportSymbol(variableName: string, filePath: string) {
+//     const editor = vscode.window.activeTextEditor;
+//     if (!editor) {
+//         vscode.window.showErrorMessage("请打开一个文件再执行该命令");
+//         return;
+//     }
+
+//     const document = editor.document;
+//     const fileType = document.languageId;
+//     const text = document.getText();
+//     const importPath = filePath.replace(/\\/g, '/'); // 使用统一的路径分隔符
+
+//     // 构造基本导入语句
+//     let importStatement = `import { ${variableName} } from '${importPath}';`;
+    
+//     // 匹配已有导入语句的正则（用于查找现有的导入路径）
+//     const importRegex = new RegExp(`import\\s+\\{?\\s*([^\\}]+)\\s*\\}?\\s+from\\s+['"]${importPath}['"];?`, 'g');
+
+//     const insertIntoScriptTag = async (scriptMatch: RegExpExecArray) => {
+//         const scriptContent = scriptMatch[1];
+//         const scriptStart = scriptMatch.index + scriptMatch[0].indexOf(scriptContent);
+
+//         // 在 scriptContent 内部查找导入
+//         const scriptImportRegex = new RegExp(`import\\s+\\{?\\s*([^\\}]+)\\s*\\}?\\s+from\\s+['"]${importPath}['"];?`, 'g');
+//         const existingImportMatch = scriptImportRegex.exec(scriptContent);
+
+//         if (existingImportMatch) {
+//             const existingImports = existingImportMatch[1].split(',').map(v => v.trim());
+//             if (!existingImports.includes(variableName)) {
+//                 const newImport = `import { ${[...existingImports, variableName].join(', ')} } from '${importPath}';`;
+//                 const importStart = scriptStart + existingImportMatch.index;
+//                 const importEnd = importStart + existingImportMatch[0].length;
+
+//                 await editor.edit(editBuilder => {
+//                     editBuilder.replace(new vscode.Range(document.positionAt(importStart), document.positionAt(importEnd)), newImport);
+//                 });
+//             } else {
+//                 vscode.window.showInformationMessage(`变量 ${variableName} 已存在于导入 ${importPath}`);
+//             }
+//         } else {
+//             const insertPosition = document.positionAt(scriptStart);
+//             await editor.edit(editBuilder => {
+//                 editBuilder.insert(insertPosition, `\n${importStatement}`);
+//             });
+//         }
+//     };
+
+//     if (['vue', 'svelte'].includes(fileType)) {
+//         const scriptTagRegex = /<script[^>]*>([\s\S]*?)<\/script>/g;
+//         const scriptMatch = scriptTagRegex.exec(text);
+
+//         if (scriptMatch) {
+//             await insertIntoScriptTag(scriptMatch);
+//         } else {
+//             vscode.window.showErrorMessage("未找到 <script> 标签，无法插入导入语句");
+//         }
+//     } else if (['javascript', 'typescript', 'javascriptreact', 'typescriptreact'].includes(fileType)) {
+//         const match = importRegex.exec(text);
+//         if (match) {
+//             const existingImports = match[1].split(',').map(v => v.trim());
+//             if (!existingImports.includes(variableName)) {
+//                 const newImport = `import { ${[...existingImports, variableName].join(', ')} } from '${importPath}';`;
+//                 const startPos = document.positionAt(match.index);
+//                 const endPos = document.positionAt(match.index + match[0].length);
+
+//                 await editor.edit(editBuilder => {
+//                     editBuilder.replace(new vscode.Range(startPos, endPos), newImport);
+//                 });
+//             } else {
+//                 vscode.window.showInformationMessage(`变量 ${variableName} 已存在于导入 ${importPath}`);
+//             }
+//         } else {
+//             await editor.edit(editBuilder => {
+//                 editBuilder.insert(new vscode.Position(0, 0), importStatement + '\n');
+//             });
+//         }
+//     } else {
+//         vscode.window.showErrorMessage(`当前文件类型 ${fileType} 不支持自动导入`);
+//     }
+// }
+/**
+ * 自动在文件中插入导入语句
+ *
+ * @param variableName 要导入的变量名
+ * @param filePath 导入文件的路径
+ * @returns 异步函数，无返回值
+ */
 export async function addImportSymbol(variableName: string, filePath: string) {
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
@@ -478,19 +565,19 @@ export async function addImportSymbol(variableName: string, filePath: string) {
     const document = editor.document;
     const fileType = document.languageId;
     const text = document.getText();
-    const importPath = filePath.replace(/\\/g, '/'); // 使用统一的路径分隔符
+    const importPath = filePath.replace(/\\/g, '/'); // 统一路径分隔符
+    const importStatement = `import { ${variableName} } from '${importPath}';`;
 
-    // 构造基本导入语句
-    let importStatement = `import { ${variableName} } from '${importPath}';`;
-    
-    // 匹配已有导入语句的正则（用于查找现有的导入路径）
+    // 正则匹配导入语句
     const importRegex = new RegExp(`import\\s+\\{?\\s*([^\\}]+)\\s*\\}?\\s+from\\s+['"]${importPath}['"];?`, 'g');
 
+    /**
+     * 检查并插入到 Vue 或 Svelte 文件的 <script> 标签内
+     */
     const insertIntoScriptTag = async (scriptMatch: RegExpExecArray) => {
         const scriptContent = scriptMatch[1];
         const scriptStart = scriptMatch.index + scriptMatch[0].indexOf(scriptContent);
 
-        // 在 scriptContent 内部查找导入
         const scriptImportRegex = new RegExp(`import\\s+\\{?\\s*([^\\}]+)\\s*\\}?\\s+from\\s+['"]${importPath}['"];?`, 'g');
         const existingImportMatch = scriptImportRegex.exec(scriptContent);
 
@@ -502,20 +589,52 @@ export async function addImportSymbol(variableName: string, filePath: string) {
                 const importEnd = importStart + existingImportMatch[0].length;
 
                 await editor.edit(editBuilder => {
-                    editBuilder.replace(new vscode.Range(document.positionAt(importStart), document.positionAt(importEnd)), newImport);
+                    editBuilder.replace(
+                        new vscode.Range(document.positionAt(importStart), document.positionAt(importEnd)),
+                        newImport
+                    );
                 });
             } else {
                 vscode.window.showInformationMessage(`变量 ${variableName} 已存在于导入 ${importPath}`);
             }
         } else {
-            const insertPosition = document.positionAt(scriptStart);
+            const scriptInsertPos = document.positionAt(scriptStart).translate(1, 0);
             await editor.edit(editBuilder => {
-                editBuilder.insert(insertPosition, `\n${importStatement}`);
+                editBuilder.insert(scriptInsertPos, `\n${importStatement}`);
             });
         }
     };
 
+    /**
+     * 插入到文件头部注释之后
+     */
+    const insertAfterComments = async () => {
+        const commentRegex = /^(\/\*[\s\S]*?\*\/|\/\/.*(?:\r?\n\/\/.*)*)/;
+        const match = commentRegex.exec(text);
+
+        let insertPosition = new vscode.Position(0, 0);
+        if (match) {
+            const commentEndIndex = match.index + match[0].length;
+
+            // 找到注释块结束后第一行非空行的位置
+            const remainingText = text.slice(commentEndIndex).trimStart();
+            const nonEmptyLineMatch = /^[^\s]/m.exec(remainingText);
+
+            if (nonEmptyLineMatch) {
+                const firstCodeIndex = commentEndIndex + nonEmptyLineMatch.index;
+                insertPosition = document.positionAt(firstCodeIndex);
+            } else {
+                insertPosition = document.positionAt(commentEndIndex).translate(1, 0);
+            }
+        }
+
+        await editor.edit(editBuilder => {
+            editBuilder.insert(insertPosition, `\n${importStatement}`);
+        });
+    };
+
     if (['vue', 'svelte'].includes(fileType)) {
+        // Vue 和 Svelte 文件处理
         const scriptTagRegex = /<script[^>]*>([\s\S]*?)<\/script>/g;
         const scriptMatch = scriptTagRegex.exec(text);
 
@@ -525,6 +644,7 @@ export async function addImportSymbol(variableName: string, filePath: string) {
             vscode.window.showErrorMessage("未找到 <script> 标签，无法插入导入语句");
         }
     } else if (['javascript', 'typescript', 'javascriptreact', 'typescriptreact'].includes(fileType)) {
+        // JS 和 TS 文件处理
         const match = importRegex.exec(text);
         if (match) {
             const existingImports = match[1].split(',').map(v => v.trim());
@@ -540,9 +660,7 @@ export async function addImportSymbol(variableName: string, filePath: string) {
                 vscode.window.showInformationMessage(`变量 ${variableName} 已存在于导入 ${importPath}`);
             }
         } else {
-            await editor.edit(editBuilder => {
-                editBuilder.insert(new vscode.Position(0, 0), importStatement + '\n');
-            });
+            await insertAfterComments();
         }
     } else {
         vscode.window.showErrorMessage(`当前文件类型 ${fileType} 不支持自动导入`);

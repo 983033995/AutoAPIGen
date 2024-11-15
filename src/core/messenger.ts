@@ -177,6 +177,13 @@ const receiveMessages = (
               if (configInfo.alias) {
                 const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
                 importPath = replacePathAlias(importPath, target)
+              } else {
+                const editor = vscode.window.activeTextEditor;
+
+                if (editor) {
+                  const filePath = editor.document.uri.fsPath;
+                  importPath = utils.getRelativeImportPath(filePath, apiFunctionPath.path);
+                }
               }
               const importStr = `import { ${apiFunctionName} } from '${importPath}';`
               vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', importStr);
@@ -191,8 +198,15 @@ const receiveMessages = (
               if (configInfo.alias) {
                 const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
                 importPath = replacePathAlias(importPath, target)
+              } else {
+                const editor = vscode.window.activeTextEditor;
+
+                if (editor) {
+                  const filePath = editor.document.uri.fsPath;
+                  importPath = utils.getRelativeImportPath(filePath, path);
+                }
               }
-              addImportSymbol(apiFunctionName, importPath.slice(0, -3))
+              addImportSymbol(apiFunctionName, importPath)
             }
           };
           handler[type] && (await handler[type]());

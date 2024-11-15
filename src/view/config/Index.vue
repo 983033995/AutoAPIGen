@@ -28,7 +28,7 @@ const defaultModel = {
   axiosPath: '',
   axiosReturnKey: '',
   useProjectName: false,
-  alias: 'src: @'
+  alias: ''
 };
 
 // 表单配置信息
@@ -324,12 +324,13 @@ const defaultValue = '// 在此输入自定义内容';
         </a-form-item>
         <a-form-item
           field="alias"
-          tooltip="使用别名配置，如：'src/': '@/'"
+          tooltip="使用别名配置，如：src: @, assets: @/assets, 会将路径中的src之前的路径替换为@"
           :label="t('configInfoFrom.alias')"
         >
             <a-input v-model="formConfig.alias" />
         </a-form-item>
         <a-form-item
+          v-if="formConfig.model !== 'wx'"
           field="axiosPath"
           tooltip="输入axios引用路径（使用@等别名配置）"
           :label="t('configInfoFrom.axiosPath')"
