@@ -14,7 +14,8 @@ import {
   getPathsAndApiDetails,
   replacePathAlias,
   revealSymbol,
-  addImportSymbol
+  addImportSymbol,
+  cnToPinyin
 } from "./helpers/helper";
 import { SETTING_FILE_URL } from "../constant/index";
 import {
@@ -146,7 +147,14 @@ const receiveMessages = (
             const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
               const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
               const { path: relativePath, api } = filePathList[0]
-              const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${relativePath}`
+              let projectName = ''
+              if (setting.configInfo?.useProjectName) {
+                const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
+                console.log('------>projectList', projectList)
+                const projectIds = setting.configInfo.projectId || []
+                projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
+              }
+              const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
               const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
               const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
               return {
