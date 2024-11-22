@@ -252,6 +252,9 @@ interface ApiDetailParametersQuery {
     type?: string;
     [key: string]: any
   }
+  items: {
+    [key: string]: any
+  }
   enum: any[];
 }
 interface ApiDetailParameters {
@@ -411,3 +414,4 @@ interface ApiDetailGather extends apiDetailItem {
   interfaceQueryName: string
   interfaceResName: string
 }
+declare module 'prettier-plugin-organize-imports';

@@ -2,11 +2,13 @@
 import * as vscode from "vscode";
 import { getWorkspaceStateUtil } from "../workspace/stateManager";
 import prettier from "prettier";
+// import prettierPluginSortImports from '@trivago/prettier-plugin-sort-imports'
+// import prettierPluginOrganizeImports from 'prettier-plugin-organize-imports'
 import { FeedbackHelper } from "../helpers/feedbackHelper";
 import { firstToLocaleUpperCase } from "../helpers/helper";
 const fsExtra = require("fs-extra");
-import * as utils from "./utils";
-import { formatTypescriptText } from './formatCode'
+// import * as utils from "./utils";
+// import { formatTypescriptText } from './formatCode'
 import path from "path";
 
 const apiTypeCollection = ["get", "delete", "head", "options"];
@@ -90,7 +92,7 @@ export function buildParameters(parameters: ApiDetailParametersQuery): string {
                 const resType = schema.items.format || schema.items.type || "string";
                 return `${getType(resType)}[]`;
             }
-            return "string[]";
+            return `${getType(parameters.items.type)}[]`;
         },
         file: () => "File | Blob | ArrayBuffer | Uint8Array",
     };
@@ -204,7 +206,7 @@ export function buildParametersSchema(
             return (
                 acc +
                 `${cur.description || cur.example ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ""} */` : ""}
-                ${utils.nameFormatter(cur.name)}${cur.required ? "" : "?"}: ${utils.buildParameters(cur)}
+                ${nameFormatter(cur.name)}${cur.required ? "" : "?"}: ${buildParameters(cur)}
               `
             );
         }, "")} [key: string]: any
@@ -264,16 +266,16 @@ export function transformSchema(
                 const typeStr = buildPropertyType(property, key, faceName);
 
                 resStr += `${title ? `\n/** ${title} */` : ''}
-            ${utils.nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
+            ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
             }
             return resStr;
         } else if (type === "array") {
             const { items } = obj;
             return schemaTypes.includes(items.type) || items?.$ref
                 ? output(items, faceName)
-                : utils.buildParameters(items);
+                : buildParameters(items);
         } else {
-            return utils.buildParameters(obj as unknown as ApiDetailParametersQuery);
+            return buildParameters(obj as unknown as ApiDetailParametersQuery);
         }
     };
 
@@ -323,7 +325,7 @@ export function transformSchema(
                             return `${buildChildrenOutput(property.items, `${faceName}${firstToLocaleUpperCase(key)}`)} | ${otherType}`;
                         }
                     }
-                    return `${property.items?.type || "any"}[]`;
+                    return `${buildParameters(property as ApiDetailParametersQuery)}`;
                 }
             } else {
                 if (property?.$ref) {
@@ -344,7 +346,7 @@ export function transformSchema(
                 return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
             }
         } else {
-            return utils.buildParameters(property as unknown as ApiDetailParametersQuery);
+            return buildParameters(property as unknown as ApiDetailParametersQuery);
         }
     }
 
@@ -386,7 +388,7 @@ export function transformSchema(
         let childrenResStr =
             type === "string"
                 ? `${description}
-      export type ${childrenInterfaceName} = ${utils.buildParameters(noRef as unknown as ApiDetailParametersQuery)}
+      export type ${childrenInterfaceName} = ${buildParameters(noRef as unknown as ApiDetailParametersQuery)}
     `
                 : `${description}
       export interface ${childrenInterfaceName} {
@@ -545,7 +547,7 @@ export function buildApiFunctionSignature(
             args.push(`pathParams: Expand<${apiFunctionName}PathQuery>`);
         } else {
             args.push(
-                `${pathParams[0].name}: ${utils.buildParameters(pathParams[0])}`
+                `${pathParams[0].name}: ${buildParameters(pathParams[0])}`
             );
         }
     }
@@ -662,7 +664,7 @@ export function getErrorInfo(error: any) {
 // 辅助函数：格式化参数
 export function formatParameter(param: ApiDetailParametersQuery): string {
     return `${param.description ? `/** ${param.description}${param.example ? ` example: ${param.example}` : ""} */` : ""}
-              ${utils.nameFormatter(param.name)}${param.required ? "" : "?"}: ${utils.buildParameters(param)}`;
+              ${nameFormatter(param.name)}${param.required ? "" : "?"}: ${buildParameters(param)}`;
 }
 // 辅助函数：获取 Prettier 配置
 export function getPrettierSetting(setting: ConfigurationInformation) {
@@ -670,10 +672,6 @@ export function getPrettierSetting(setting: ConfigurationInformation) {
         semi: false,
         singleQuote: true,
         parser: "typescript",
-        importOrder: ["^@/(.*)$", "^[./]"],
-        importOrderSeparation: true,
-        importOrderSortSpecifiers: true,
-        unusedImports: true,
     };
     try {
         return {
@@ -736,19 +734,57 @@ export function buildApiFunctionHead(
       `;
 }
 
+// 用于缓存加载的 Prettier 插件
+let cachedPlugins: { prettierPluginSortImports?: any; prettierPluginOrganizeImports?: any } | null = null;
+
+// 异步加载 Prettier 插件，非阻塞
+function loadPrettierPluginsAsync() {
+    if (cachedPlugins) return Promise.resolve(cachedPlugins); // 如果已加载，直接返回缓存
+    return (async () => {
+        try {
+            const prettierPluginSortImports = await import("@trivago/prettier-plugin-sort-imports");
+            const prettierPluginOrganizeImports = await import("prettier-plugin-organize-imports");
+            cachedPlugins = { prettierPluginSortImports, prettierPluginOrganizeImports };
+            return cachedPlugins;
+        } catch (error: any) {
+            FeedbackHelper.logErrorToOutput(`加载 Prettier 插件失败: ${error.message}`);
+            cachedPlugins = null; // 加载失败时重置缓存
+            return null;
+        }
+    })();
+}
+
 // 辅助函数：格式化代码
 export async function formatCode(
     code: string,
-    petterSetting: Record<string, any>,
+    prettierSetting: Record<string, any>,
     codeType: string
 ) {
-    try {
-        return await prettier.format(code, petterSetting);
+    let extraPrettierSetting = {};
 
-        // return formatTypescriptText(code, petterSetting)
+    // 格式化主逻辑，插件加载完成前不阻塞
+    try {
+        const plugins = await loadPrettierPluginsAsync();
+        if (plugins) {
+            const { prettierPluginSortImports, prettierPluginOrganizeImports } = plugins;
+            extraPrettierSetting = {
+                plugins: [prettierPluginSortImports, prettierPluginOrganizeImports],
+                importOrder: ["^@/(.*)$", "^[./]"],
+                importOrderSeparation: true,
+                importOrderSortSpecifiers: true,
+                unusedImports: true,
+            };
+        }
     } catch (error: any) {
-        FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${error}`);
-        return code;
+        FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${error.message}`);
+        extraPrettierSetting = {}; // 降级策略：不加载插件
+    }
+    // 尝试格式化代码
+    try {
+        return prettier.format(code, { ...prettierSetting, ...extraPrettierSetting });
+    } catch (formatError: any) {
+        FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${formatError.message || '未知错误'}`);
+        return code; // 回退到原始代码
     }
 }
 
@@ -936,15 +972,70 @@ export async function backupAndReplace(uri: vscode.Uri, content: string) {
     }
 }
 
-// 辅助函数：创建新文件
+// // 辅助函数：创建新文件
+// export async function createNewFiles(
+//     apiUri: vscode.Uri,
+//     InterfaceUri: vscode.Uri,
+//     funCode: string,
+//     interfaceCode: string
+// ) {
+//     await vscode.workspace.fs.writeFile(apiUri, Buffer.from(funCode));
+//     await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(interfaceCode));
+// }
+/**
+ * 创建文件的安全方法，确保路径存在并捕获错误。
+ * @param uri 要创建的文件 URI
+ * @param content 文件内容
+ */
+async function safeWriteFile(uri: vscode.Uri, content: string): Promise<void> {
+    try {
+        // 确保父目录存在
+        const dirPath = vscode.Uri.file(uri.path.substring(0, uri.path.lastIndexOf('/')));
+        await ensureDirectory(dirPath);
+
+        // 写入文件
+        const bufferContent = Buffer.from(content, 'utf8');
+        await vscode.workspace.fs.writeFile(uri, bufferContent);
+
+        FeedbackHelper.logErrorToOutput(`文件已成功写入: ${uri.fsPath}`);
+    } catch (error: any) {
+        FeedbackHelper.logErrorToOutput(`写入文件失败: ${error.message}`);
+        throw error;
+    }
+}
+
+/**
+ * 确保目录存在，如果不存在则创建。
+ * @param dirUri 目录 URI
+ */
+async function ensureDirectory(dirUri: vscode.Uri): Promise<void> {
+    try {
+        await vscode.workspace.fs.stat(dirUri);
+    } catch {
+        // 目录不存在时创建
+        await vscode.workspace.fs.createDirectory(dirUri);
+    }
+}
+
+/**
+ * 创建新文件
+ * @param apiUri API 文件的 URI
+ * @param interfaceUri 接口文件的 URI
+ * @param funCode API 函数代码
+ * @param interfaceCode 接口定义代码
+ */
 export async function createNewFiles(
     apiUri: vscode.Uri,
-    InterfaceUri: vscode.Uri,
+    interfaceUri: vscode.Uri,
     funCode: string,
     interfaceCode: string
-) {
-    await vscode.workspace.fs.writeFile(apiUri, Buffer.from(funCode));
-    await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(interfaceCode));
+): Promise<void> {
+    try {
+        await safeWriteFile(apiUri, funCode);
+        await safeWriteFile(interfaceUri, interfaceCode);
+    } catch (error) {
+        throw error;
+    }
 }
 
 // 检查并更新文件内容

@@ -9,3 +9,12 @@ vsc-extension-quickstart.md
 **/*.map
 DESC.md
 *.vsix
+node_modules/@monaco-editor/**
+node_modules/@iconify-json/**
+node_modules/@iconify/**
+node_modules/@vitest/**
+node_modules/@vueuse/**
+node_modules/eslint/**
+node_modules/monaco-editor/**
+node_modules/vue/**
+node_modules/vue-i18n/**
