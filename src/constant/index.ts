@@ -21,22 +21,22 @@ export const APP_LIST = [
 
 export const API_MODEL = [
     {
+        label: 'axios',
+        value: 'axios'
+    },
+    {
+        label: '微信小程序',
+        value: 'wx',
+    },
+    {
         label: 'vueUse',
         value: 'vueUse',
         disabled: true
     },
     {
-        label: 'axios',
-        value: 'axios'
-    },
-    {
         label: 'VueHookPlus',
         value: 'VueHookPlus',
         disabled: true
-    },
-    {
-        label: '微信小程序',
-        value: 'wx',
     },
     {
         label: '自定义',

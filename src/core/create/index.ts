@@ -1,5 +1,6 @@
 /// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode';
+import nodePath from 'path';
 import { getWorkspaceStateUtil } from '../workspace/stateManager';
 import { FeedbackHelper } from '../helpers/feedbackHelper'
 const fsExtra = require('fs-extra');
@@ -42,7 +43,7 @@ export async function createFile(
     const isNeedQs = apiFunctionStr.includes('${qs.stringify(');
 
     // 构建 API 文件头部和完整内容
-    const apiFunctionHead = utils.buildApiFunctionHead(allInterfaceName, axiosQuote, isNeedQs, rootPath, apiUri.fsPath || apiUri.path);
+    const apiFunctionHead = utils.buildApiFunctionHead(allInterfaceName, axiosQuote, isNeedQs, rootPath, apiUri.fsPath || apiUri.fsPath);
     const allFunctionContext = apiFunctionHead + apiFunctionStr;
 
     // 构建接口类型内容
@@ -54,7 +55,10 @@ export async function createFile(
 
     if (setting.configInfo.model === 'wx') {
       // 检查微信小程序http请求文件是否存在
-      const wxApiFileExists = await fsExtra.pathExists(`${rootPath}/request/index.ts`);
+      // const wxApiFileExists = await fsExtra.pathExists(`${rootPath}/request/index.ts`);
+      // 使用 path.join 拼接路径，确保跨平台兼容
+      const requestDirPath = nodePath.resolve(rootPath, 'request');
+      const wxApiFileExists = await fsExtra.pathExists(nodePath.join(requestDirPath, 'index.ts'));
       if (!wxApiFileExists) {
         const uri = (filename: string) => {
           return vscode.Uri.file(`${rootPath}/request/${filename}`);
@@ -89,7 +93,7 @@ export async function createFile(
     }
     return wxFileList
   } catch (error) {
-    FeedbackHelper.logErrorToOutput(`创建文件失败 ${apiUri.path}: ${error || '未知错误'}`);
+    FeedbackHelper.logErrorToOutput(`创建文件失败 ${apiUri.fsPath}: ${error || '未知错误'}`);
     throw new Error(`创建文件失败: ${error || '未知错误'}`);
   }
 }
@@ -132,10 +136,14 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
         pathArr.splice(1, 0, utils.convertPathToPascalCase(cnToPinyin(projectName)).trim())
         relativePath = pathArr.join('/');
       }
-      const rootPath = `${workspaceFoldersPath}${setting.configInfo.path}`
-      const commonPath = `${rootPath}/${relativePath}`
-      const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
-      const funInterfacePath = vscode.Uri.file(`${commonPath}/interface.ts`)
+      // const rootPath = `${workspaceFoldersPath}${setting.configInfo.path}`
+      // const commonPath = `${rootPath}/${relativePath}`
+      const rootPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '');
+      const commonPath = nodePath.join(rootPath, relativePath);
+      const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`));
+      const funInterfacePath = vscode.Uri.file(nodePath.join(commonPath, 'interface.ts'));
+      // const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
+      // const funInterfacePath = vscode.Uri.file(`${commonPath}/interface.ts`)
       const apiDetailGather = api.map(item => {
         const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`.trim()
         const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${utils.convertPathToPascalCase(item.path)}}`

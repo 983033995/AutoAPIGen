@@ -721,7 +721,9 @@ export function buildApiFunctionHead(
         return `${heardAnnotation}\n${sortImports(customHead)}`;
     }
     if (settingConfig.model === "wx") {
-        const importPath = getRelativeImportPath(apiPath, `${rootPath}/request/index.ts`)
+        const requestDirPath = path.join(rootPath, 'request');
+        const wxApiFileExists = path.join(requestDirPath, 'index.ts');
+        const importPath = getRelativeImportPath(apiPath, wxApiFileExists)
         return `import { http } from "${importPath}";\nimport type { ${allInterfaceName} } from './interface';\ntype Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
     }
     return `
@@ -742,8 +744,18 @@ function loadPrettierPluginsAsync() {
     if (cachedPlugins) return Promise.resolve(cachedPlugins); // 如果已加载，直接返回缓存
     return (async () => {
         try {
-            const prettierPluginSortImports = await import("@trivago/prettier-plugin-sort-imports");
-            const prettierPluginOrganizeImports = await import("prettier-plugin-organize-imports");
+            let prettierPluginSortImports = undefined
+            try {
+                prettierPluginSortImports = await import("@trivago/prettier-plugin-sort-imports");
+            } catch (error: any) {
+                FeedbackHelper.logErrorToOutput(`加载 prettier-plugin-sort-imports 插件失败, 请手动格式化: ${error.message}`);        
+            }
+            let prettierPluginOrganizeImports = undefined;
+            try {
+                prettierPluginOrganizeImports = await import("prettier-plugin-organize-imports");
+            } catch (error: any) {
+                FeedbackHelper.logErrorToOutput(`加载 prettier-plugin-organize-imports 插件失败，请手动格式化: ${error.message}`);
+            }
             cachedPlugins = { prettierPluginSortImports, prettierPluginOrganizeImports };
             return cachedPlugins;
         } catch (error: any) {
@@ -776,14 +788,14 @@ export async function formatCode(
             };
         }
     } catch (error: any) {
-        FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${error.message}`);
+        FeedbackHelper.logErrorToOutput(`prettier 插件加载失败 (${codeType}): ${error.message}`);
         extraPrettierSetting = {}; // 降级策略：不加载插件
     }
     // 尝试格式化代码
     try {
         return prettier.format(code, { ...prettierSetting, ...extraPrettierSetting });
     } catch (formatError: any) {
-        FeedbackHelper.logErrorToOutput(`代码格式化失败 (${codeType}): ${formatError.message || '未知错误'}`);
+        FeedbackHelper.logErrorToOutput(`代码格式化失败，请手动格式化 (${codeType}): ${formatError.message || '未知错误'}`);
         return code; // 回退到原始代码
     }
 }
@@ -861,7 +873,11 @@ export async function updateExistingFiles(
             petterSetting,
             isInterface ? "函数" : "接口定义"
         );
-        fsExtra.writeFileSync(uri.fsPath, newFunctionCode, "utf-8");
+        try {
+            fsExtra.writeFileSync(uri.fsPath, newFunctionCode, "utf-8");
+        } catch (error) {
+            throw error;
+        }
     } catch (error) {
         throw new Error(error as string);
     }
@@ -955,7 +971,7 @@ export function sortImports(code: string) {
  * @throws 如果文件更新失败，则抛出错误
  */
 export async function backupAndReplace(uri: vscode.Uri, content: string) {
-    const backupUri = uri.with({ path: uri.path + ".bak" });
+    const backupUri = uri.with({ path: uri.fsPath + ".bak" });
     await vscode.workspace.fs.rename(uri, backupUri);
     try {
         await vscode.workspace.fs.writeFile(uri, Buffer.from(content));
@@ -966,76 +982,38 @@ export async function backupAndReplace(uri: vscode.Uri, content: string) {
             await vscode.workspace.fs.rename(backupUri, uri);
         }
         FeedbackHelper.logErrorToOutput(
-            `文件更新失败 ${uri.path}: ${error || "未知错误"}`
+            `文件更新失败 ${uri.fsPath}: ${error || "未知错误"}`
         );
         throw new Error(`文件更新失败: ${error || "未知错误"}`);
     }
 }
 
-// // 辅助函数：创建新文件
-// export async function createNewFiles(
-//     apiUri: vscode.Uri,
-//     InterfaceUri: vscode.Uri,
-//     funCode: string,
-//     interfaceCode: string
-// ) {
-//     await vscode.workspace.fs.writeFile(apiUri, Buffer.from(funCode));
-//     await vscode.workspace.fs.writeFile(InterfaceUri, Buffer.from(interfaceCode));
-// }
 /**
- * 创建文件的安全方法，确保路径存在并捕获错误。
- * @param uri 要创建的文件 URI
+ * 创建文件并写入内容
+ * @param filePath 文件路径
  * @param content 文件内容
  */
-async function safeWriteFile(uri: vscode.Uri, content: string): Promise<void> {
-    try {
-        // 确保父目录存在
-        const dirPath = vscode.Uri.file(uri.path.substring(0, uri.path.lastIndexOf('/')));
-        await ensureDirectory(dirPath);
-
-        // 写入文件
-        const bufferContent = Buffer.from(content, 'utf8');
-        await vscode.workspace.fs.writeFile(uri, bufferContent);
-
-        FeedbackHelper.logErrorToOutput(`文件已成功写入: ${uri.fsPath}`);
-    } catch (error: any) {
-        FeedbackHelper.logErrorToOutput(`写入文件失败: ${error.message}`);
-        throw error;
-    }
+async function createFileWithFsExtra(filePath: string, content: string): Promise<void> {
+    const normalizedPath = path.resolve(filePath); // 确保路径规范化
+    await fsExtra.ensureDir(path.dirname(normalizedPath)); // 确保父目录存在
+    await fsExtra.writeFile(normalizedPath, content, 'utf8'); // 写入文件
 }
 
 /**
- * 确保目录存在，如果不存在则创建。
- * @param dirUri 目录 URI
- */
-async function ensureDirectory(dirUri: vscode.Uri): Promise<void> {
-    try {
-        await vscode.workspace.fs.stat(dirUri);
-    } catch {
-        // 目录不存在时创建
-        await vscode.workspace.fs.createDirectory(dirUri);
-    }
-}
-
-/**
- * 创建新文件
- * @param apiUri API 文件的 URI
- * @param interfaceUri 接口文件的 URI
+ * 创建新文件（替换 vscode.workspace.fs）
+ * @param apiPath API 文件路径
+ * @param interfacePath 接口文件路径
  * @param funCode API 函数代码
  * @param interfaceCode 接口定义代码
  */
 export async function createNewFiles(
-    apiUri: vscode.Uri,
-    interfaceUri: vscode.Uri,
+    apiPath: vscode.Uri,
+    interfacePath: vscode.Uri,
     funCode: string,
     interfaceCode: string
 ): Promise<void> {
-    try {
-        await safeWriteFile(apiUri, funCode);
-        await safeWriteFile(interfaceUri, interfaceCode);
-    } catch (error) {
-        throw error;
-    }
+    await createFileWithFsExtra(apiPath.fsPath, funCode);
+    await createFileWithFsExtra(interfacePath.fsPath, interfaceCode);
 }
 
 // 检查并更新文件内容

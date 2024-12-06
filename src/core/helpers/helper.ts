@@ -586,16 +586,14 @@ export async function addImportSymbol(variableName: string, filePath: string) {
 
         const existingImport = importLines.find(line => line.includes(importPath));
         if (existingImport) {
-            // 检查变量是否已存在
             if (existingImport.includes(variableName)) {
                 vscode.window.showInformationMessage(`变量 ${variableName} 已存在于导入 ${importPath}`);
                 return;
             } else {
-                // 在现有导入语句中添加新变量
                 const updatedImport = existingImport.replace(
                     '{',
                     `{ ${variableName},`
-                ); // 插入新变量
+                );
                 const updatedScriptContent = scriptContent.replace(existingImport, updatedImport);
 
                 const newText = text.slice(0, scriptContentStart) + updatedScriptContent + text.slice(scriptTagEnd);
@@ -608,7 +606,6 @@ export async function addImportSymbol(variableName: string, filePath: string) {
                 });
             }
         } else {
-            // 插入新导入语句
             const firstImportIndex = scriptContent.split('\n').findIndex(line => line.trim().startsWith('import '));
             const insertPosition = firstImportIndex !== -1
                 ? document.positionAt(scriptContentStart).translate(firstImportIndex, 0)
@@ -629,8 +626,10 @@ export async function addImportSymbol(variableName: string, filePath: string) {
             });
         }
     } else if (['javascript', 'typescript', 'javascriptreact', 'typescriptreact'].includes(fileType)) {
-        // JS 和 TS 文件处理
         const lines = text.split('\n');
+        const commentBlockEndIndex = lines.findIndex(line => !line.trim().startsWith('//') && !line.trim().startsWith('/*') && !line.trim().startsWith('*'));
+        const insertIndex = commentBlockEndIndex === -1 ? 0 : commentBlockEndIndex;
+
         const existingImportLineIndex = lines.findIndex(line => line.includes(importPath));
         if (existingImportLineIndex !== -1) {
             const existingImportLine = lines[existingImportLineIndex];
@@ -641,12 +640,10 @@ export async function addImportSymbol(variableName: string, filePath: string) {
                 lines[existingImportLineIndex] = existingImportLine.replace(
                     '{',
                     `{ ${variableName},`
-                ); // 在现有导入语句中插入新变量
+                );
             }
         } else {
-            // 在文件头插入新的导入语句
-            const firstNonCommentLineIndex = lines.findIndex(line => !line.trim().startsWith('//') && line.trim() !== '');
-            lines.splice(firstNonCommentLineIndex, 0, importStatement);
+            lines.splice(insertIndex, 0, importStatement);
         }
 
         const updatedText = lines.join('\n');
