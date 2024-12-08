@@ -57,8 +57,8 @@ export async function createFile(
       // 检查微信小程序http请求文件是否存在
       // const wxApiFileExists = await fsExtra.pathExists(`${rootPath}/request/index.ts`);
       // 使用 path.join 拼接路径，确保跨平台兼容
-      const requestDirPath = nodePath.resolve(rootPath, 'request');
-      const wxApiFileExists = await fsExtra.pathExists(nodePath.join(requestDirPath, 'index.ts'));
+      const requestIndexPath = vscode.Uri.file(`${rootPath}/request/index.ts`).fsPath
+      const wxApiFileExists = await fsExtra.pathExists(requestIndexPath);
       if (!wxApiFileExists) {
         const uri = (filename: string) => {
           return vscode.Uri.file(`${rootPath}/request/${filename}`);
@@ -111,7 +111,7 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
 
   let createSuccessFiles: string[] = []
 
-  const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
+  const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
 
   const apiModel: apiModelType = setting.configInfo.model || 'axios'
   const axiosQuote: string = setting.configInfo?.axiosPath || 'import axios from "axios"'

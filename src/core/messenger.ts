@@ -29,6 +29,7 @@ import { getWorkspaceStateUtil } from "./workspace/stateManager";
 import { generateFile } from "../core/create/index";
 import { FeedbackHelper } from "./helpers/feedbackHelper";
 import * as utils from './create/utils'
+import nodePath from 'path'
 
 const workspaceFolders = vscode.workspace.workspaceFolders || [];
 
@@ -145,7 +146,7 @@ const receiveMessages = (
           console.log("----->filePathList", filePathList);
           const getApiInfo = () => {
             const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-              const workspaceFoldersPath = setting.workspaceFolders[0].uri.path
+              const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
               const { path: relativePath, api } = filePathList[0]
               let projectName = ''
               if (setting.configInfo?.useProjectName) {
@@ -154,8 +155,9 @@ const receiveMessages = (
                 const projectIds = setting.configInfo.projectId || []
                 projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
               }
-              const commonPath = `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
-              const apiFunctionPath = vscode.Uri.file(`${commonPath}/${setting.configInfo.appName}.ts`)
+              // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
+              const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
+              const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
               const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
               return {
                 apiFunctionPath,

@@ -1094,12 +1094,12 @@ export function extractInterfaceName(interfaceContent: string): string {
  */
 export function getRelativeImportPath(filePathA: string, filePathB: string): string {
     // 确保路径格式统一，防止路径中包含空格或特殊字符造成问题
-    const normalizedFilePathA = path.resolve(filePathA);
-    const normalizedFilePathB = path.resolve(filePathB);
+    const normalizedFilePathA = filePathA.split(path.sep).join('/').split('/').filter(Boolean).join('/');
+    const normalizedFilePathB = filePathB.split(path.sep).join('/').split('/').filter(Boolean).join('/');
 
     // 计算相对路径
     let relativePath = path.relative(path.dirname(normalizedFilePathA), normalizedFilePathB);
-
+    relativePath = relativePath.split(path.sep).filter(Boolean).join('/');
     // 确保路径适合 import 语句
     if (!relativePath.startsWith('.') && !relativePath.startsWith('/')) {
         relativePath = './' + relativePath;
