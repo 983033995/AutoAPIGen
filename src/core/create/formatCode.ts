@@ -127,3 +127,90 @@ export async function formatTypescriptText(text: string, defaultPetterSetting: R
         throw new Error(`格式化失败: ${error.message}`);
     }
 }
+
+
+
+export async function formatCode(code: string, language: string = 'typescript'): Promise<string> {
+    try {
+        // 使用隐藏文档避免弹窗
+        const tempDoc = await vscode.workspace.openTextDocument({
+            language,
+            content: code,
+        });
+        // 显示文档以确保其成为活动窗口
+        const editor = await vscode.window.showTextDocument(tempDoc, { preview: true });
+        // 调用格式化命令，直接获取格式化结果
+        const edits = await vscode.commands.executeCommand<vscode.TextEdit[]>(
+            'vscode.executeFormatDocumentProvider',
+            tempDoc.uri
+        );
+
+        if (!edits || edits.length === 0) {
+            throw new Error('没有格式化结果返回');
+        }
+
+        // 应用格式化结果到原始代码
+        const formattedCode = applyEdits(code, edits);
+
+        await closeSpecifiedEditorWithoutSaving(tempDoc.uri)
+        return formattedCode;
+    } catch (error) {
+        console.error('格式化代码失败:', error);
+        throw new Error('格式化失败，请检查编辑器或默认格式化工具设置。');
+    }
+}
+
+// 辅助函数：应用格式化结果到字符串
+function applyEdits(original: string, edits: vscode.TextEdit[]): string {
+    let result = original;
+    edits
+        .sort((a, b) => b.range.start.compareTo(a.range.start)) // 从后往前应用更改
+        .forEach(edit => {
+            const start = getOffset(original, edit.range.start);
+            const end = getOffset(original, edit.range.end);
+            result = result.slice(0, start) + edit.newText + result.slice(end);
+        });
+    return result;
+}
+
+// 辅助函数：将位置转换为字符串偏移量
+function getOffset(text: string, position: vscode.Position): number {
+    const lines = text.split('\n');
+    let offset = 0;
+    for (let i = 0; i < position.line; i++) {
+        offset += lines[i].length + 1; // 加上换行符
+    }
+    offset += position.character;
+    return offset;
+}
+/**
+ * 强制关闭指定的文件窗口（不保存）
+ * @param uri 文件的 URI
+ */
+export async function closeSpecifiedEditorWithoutSaving(uri: vscode.Uri) {
+    // 遍历所有打开的标签页
+    const tabs = vscode.window.tabGroups.all.flatMap(group => group.tabs);
+
+    // 找到目标标签
+    const targetTab = tabs.find(tab => {
+        if (tab.input instanceof vscode.TabInputText) {
+            return tab.input.uri.toString() === uri.toString();
+        }
+        return false;
+    });
+    console.log("-------->fun--closeSpecifiedEditorWithoutSaving", targetTab, uri.toString());
+    if (!targetTab) {
+        vscode.window.showWarningMessage(`未找到指定的文件窗口：${uri.fsPath}`);
+        return;
+    }
+
+    // 激活目标文件窗口
+    const document = vscode.workspace.textDocuments.find(doc => doc.uri.toString() === uri.toString());
+    if (document) {
+        // 将目标文件设为活动窗口
+        await vscode.window.showTextDocument(document, { preview: true });
+
+        // 强制关闭当前活动窗口，不保存更改
+        await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+    }
+}

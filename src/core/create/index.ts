@@ -48,7 +48,7 @@ export async function createFile(
 
     // 构建接口类型内容
     const allInterfaceContext = apiDetailGather.map((cur) => cur.apiInterfaceContext).join('');
-
+    FeedbackHelper.logErrorToOutput('开始格式化代码： create', 'Info')
     // 格式化代码
     const formattedFunCode = await utils.formatCode(allFunctionContext, petterSetting, '函数代码');
     const formattedInterfaceCode = await utils.formatCode(allInterfaceContext, petterSetting, '接口定义代码');
@@ -57,15 +57,16 @@ export async function createFile(
       // 检查微信小程序http请求文件是否存在
       // const wxApiFileExists = await fsExtra.pathExists(`${rootPath}/request/index.ts`);
       // 使用 path.join 拼接路径，确保跨平台兼容
-      const requestIndexPath = vscode.Uri.file(`${rootPath}/request/index.ts`).fsPath
+      const requestIndexPath = vscode.Uri.file(nodePath.join(rootPath,'request/index.ts')).fsPath
       const wxApiFileExists = await fsExtra.pathExists(requestIndexPath);
       if (!wxApiFileExists) {
         const uri = (filename: string) => {
-          return vscode.Uri.file(`${rootPath}/request/${filename}`);
+          return vscode.Uri.file(nodePath.join(rootPath, 'request', filename));
         }
         const envConfigCode = await utils.formatCode(envConfig, petterSetting, '')
         const interfaceCode = await utils.formatCode(interfaceDefinition, petterSetting, '')
         const apiRequestCode = await utils.formatCode(apiRequest, petterSetting, '')
+
         await vscode.workspace.fs.writeFile(uri('env.config.ts'), Buffer.from(envConfigCode));
         await vscode.workspace.fs.writeFile(uri('interface.d.ts'), Buffer.from(interfaceCode));
         await vscode.workspace.fs.writeFile(uri('index.ts'), Buffer.from(apiRequestCode));
@@ -115,22 +116,20 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
 
   const apiModel: apiModelType = setting.configInfo.model || 'axios'
   const axiosQuote: string = setting.configInfo?.axiosPath || 'import axios from "axios"'
-  console.log('---->generateFile--', filePathList, apiDetailList)
 
-  console.log('------>workspaceFoldersPath', workspaceFoldersPath)
   // 1. 确定文件路径
   const { workspaceFolders } = vscode.workspace;
   if (!workspaceFolders) {
     vscode.window.showErrorMessage('没有打开的工作区');
     return;
   }
+
   for (let i = 0, len = filePathList.length; i < len; i++) {
     try {
       const { path, api, pathArr } = filePathList[i];
       let relativePath = path;
       if (setting.configInfo?.useProjectName) {
         const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
-        console.log('------>projectList', projectList)
         const projectIds = setting.configInfo.projectId || []
         const projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
         pathArr.splice(1, 0, utils.convertPathToPascalCase(cnToPinyin(projectName)).trim())
@@ -178,7 +177,10 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
     }
   }
 
-  createSuccessFiles.length && FeedbackHelper.showFileCreationResults(createSuccessFiles)
+  if(createSuccessFiles.length) {
+    FeedbackHelper.showFileCreationResults(createSuccessFiles)
+    FeedbackHelper.logErrorToOutput(`文件生成成功: ${createSuccessFiles.join('\n')}`, 'Info')
+  }
 }
 
 /**
@@ -248,7 +250,8 @@ function buildMethodTemplate(
         apiFunctionName,
         extraFunctionName: `use${firstToLocaleUpperCase(apiFunctionName)}`,
         apiPath,
-        log: FeedbackHelper.logErrorToOutput
+        buildParameters: utils.buildParameters,
+        log: FeedbackHelper.logErrorToOutput.bind(FeedbackHelper)
       }
       const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`
       const customFunction = utils.customFunctionReturn(options, description, defaultFunction, apiFunctionName) || ''

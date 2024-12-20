@@ -202,6 +202,10 @@ const optionsType = `
           extraFunctionName: string;
           /** API 路径 */
           apiPath: string;
+          /** 将接口定义的类型转换为ts类型 */
+          buildParameters: (
+            params: ApiDetailParametersQuery[]
+          )
           /** 日志函数 */
           log: (message: string) => void;
         }
@@ -220,6 +224,7 @@ const optionsProperties = [
   { label: 'apiFunctionName', documentation: 'API 函数名称' },
   { label: 'extraFunctionName', documentation: '扩展函数名称(use 开头)' },
   { label: 'apiPath', documentation: 'API 路径' },
+  { label: 'buildParameters', documentation: '将接口定义的类型转换为ts类型' },
   { label: 'log', documentation: '日志函数' }
 ];
 const defaultValue = '// 在此输入自定义内容';

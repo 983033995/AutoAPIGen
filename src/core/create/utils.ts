@@ -1,7 +1,8 @@
 /// <reference path="../../global.d.ts" />
 import * as vscode from "vscode";
 import { getWorkspaceStateUtil } from "../workspace/stateManager";
-import prettier from "prettier";
+// import prettier from "prettier";
+// const prettier = require("prettier");
 // import prettierPluginSortImports from '@trivago/prettier-plugin-sort-imports'
 // import prettierPluginOrganizeImports from 'prettier-plugin-organize-imports'
 import { FeedbackHelper } from "../helpers/feedbackHelper";
@@ -159,16 +160,7 @@ export function buildInterfaceQuery(
 ): string {
     if (!queryParams.length) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口请求Query参数`
-    return `
-        /**
-         * @description ${description.replace(/\n/g, '；')}
-         * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}
-         */
-        export interface ${apiFunctionName}Query {
-          ${queryParams.map((cur) => formatParameter(cur)).join("\n")}
-          [key: string]: any
-        }
-      `;
+    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export interface ${apiFunctionName}Query {${'\n'}    ${queryParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}     [key: string]: any${'\n'}}${'\n'}`;
 }
 
 // 辅助函数：构建接口请求Body参数
@@ -179,13 +171,7 @@ export function buildInterfaceBody(
 ): string {
     if (!haveReqBody) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口请求Body参数`
-    return `
-        /**
-         * @description ${description.replace(/\n/g, '；')}
-         * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}
-         */
-        ${buildParametersSchema(apiDetailItem.requestBody || {}, `${apiFunctionName}Body`)}
-      `;
+    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}${buildParametersSchema(apiDetailItem.requestBody || {}, `${apiFunctionName}Body`)}${'\n'}`;
 }
 
 export function buildParametersSchema(
@@ -193,25 +179,18 @@ export function buildParametersSchema(
     interfaceName: string
 ): string {
     if (!configObj) {
-        return `export interface ${interfaceName} {
-            [key: string]: any
-          }
-        `;
+        return `export interface ${interfaceName} {${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
     } else if (configObj.jsonSchema) {
         return transformSchema(configObj.jsonSchema, interfaceName);
     } else {
         const bodyParameters: any[] = configObj.parameters || [];
-        return `export interface ${interfaceName} {
-            ${bodyParameters.reduce((acc, cur) => {
+        const bodyParametersReturnString = bodyParameters.reduce((acc, cur) => {
             return (
                 acc +
-                `${cur.description || cur.example ? `/** ${cur.description}${cur.example ? `  example: ${cur.example}` : ""} */` : ""}
-                ${nameFormatter(cur.name)}${cur.required ? "" : "?"}: ${buildParameters(cur)}
-              `
+                `${cur.description || cur.example ? `/** ${cur.description.replace(/\n/g, " ")}${cur.example ? `  example: ${cur.example}` : ""} */` : ""}${'\n'}    ${nameFormatter(cur.name)}${cur.required ? "" : "?"}: ${buildParameters(cur)}${'\n'}`
             );
-        }, "")} [key: string]: any
-          }
-        `;
+        }, "")
+        return `export interface ${interfaceName} {${'\n'}    ${bodyParametersReturnString}    [key: string]: any${'\n'}}${'\n'}`;
     }
 }
 export function transformSchema(
@@ -265,8 +244,7 @@ export function transformSchema(
                 const isRequired = required.includes(key);
                 const typeStr = buildPropertyType(property, key, faceName);
 
-                resStr += `${title ? `\n/** ${title} */` : ''}
-            ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
+                resStr += `${title ? `\n    /** ${title} */` : ''}${'\n'}     ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
             }
             return resStr;
         } else if (type === "array") {
@@ -301,7 +279,6 @@ export function transformSchema(
     ): string {
         if (isSchema(property)) {
             if (property.type === "array") {
-                console.log("------->array---1", property);
                 if (isSchema(property.items)) {
                     if (property.$ref || property.items.$ref) {
                         const refId = (property.$ref || property.items.$ref).split("/").pop() || "";
@@ -329,9 +306,7 @@ export function transformSchema(
                 }
             } else {
                 if (property?.$ref) {
-                    console.log("------->array---2", property);
                     const refId = property.$ref.split("/").pop();
-                    console.log("------>已存在ref", refId, processedRefs);
                     if (!refId) {
                         return "any";
                     }
@@ -342,7 +317,6 @@ export function transformSchema(
                     const schema = apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
                     return `${buildChildrenOutput(schema, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
                 }
-                console.log("------->array---3", property);
                 return `${buildChildrenOutput(property, `${faceName}${firstToLocaleUpperCase(key)}`)}`;
             }
         } else {
@@ -362,13 +336,7 @@ export function transformSchema(
 
         const getRefObj = (ref: string): Record<string, any> => {
             const refId = ref.split("/").pop() || "";
-            console.log(
-                "------>已存在refId----",
-                refId,
-                processedRefs,
-                childrenInterfaceName,
-                processedInterfaces
-            );
+
             if (!refId || refId in processedRefs) {
                 return {};
             }
@@ -387,15 +355,8 @@ export function transformSchema(
         let description = noRef.title || noRef.description ? `\n/** ${noRef.title || ""}${noRef.description || ""} */` : `\n /** ${childrenFaceName} */`
         let childrenResStr =
             type === "string"
-                ? `${description}
-      export type ${childrenInterfaceName} = ${buildParameters(noRef as unknown as ApiDetailParametersQuery)}
-    `
-                : `${description}
-      export interface ${childrenInterfaceName} {
-        ${output(noRef, childrenFaceName)}
-        [key: string]: any
-      }
-    `;
+                ? `${description}${'\n'}export type ${childrenInterfaceName} = ${buildParameters(noRef as unknown as ApiDetailParametersQuery)}${'\n'}`
+                : `${description}${'\n'}export interface ${childrenInterfaceName} {${'\n'}    ${output(noRef, childrenFaceName)}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
         childrenRes += childrenResStr;
 
         return childrenInterface;
@@ -412,16 +373,7 @@ export function buildInterfacePathQuery(
 ): string {
     if (pathParams.length <= 1) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口路径参数`
-    return `
-        /**
-         * @description ${description.replace(/\n/g, '；')}
-         * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}
-         */
-        export interface ${apiFunctionName}PathQuery {
-          ${pathParams.map((cur) => formatParameter(cur)).join("\n")}
-          [key: string]: any
-        }
-      `;
+    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export interface ${apiFunctionName}PathQuery {${'\n'}    ${pathParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
 }
 
 // 辅助函数：构建接口响应参数
@@ -431,13 +383,7 @@ export function buildInterfaceResponse(
     responses: any
 ): string {
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口返回值`
-    return `
-        /**
-         * @description ${description.replace(/\n/g, '；')}
-         * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}
-         */
-        ${buildParametersSchema(extractReturnData(apiDetailItem.responses || []), `${apiFunctionName}Res`)}
-      `;
+    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}${buildParametersSchema(extractReturnData(apiDetailItem.responses || []), `${apiFunctionName}Res`)}${'\n'}`;
 }
 export function extractReturnData(
     responses: ApiDetailListData["responses"] | []
@@ -525,11 +471,7 @@ export function buildDescription(
     apiDetailItem: Partial<ApiDetailListData>
 ): string {
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}`
-    return `/**
-       * @description ${description.replace(/\n/g, '；')}
-       * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}
-       * @host https://app.apifox.com/link/project/${apiDetailItem.projectId}/apis/api-${apiDetailItem.id}
-       */`;
+    return `/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} * @host https://app.apifox.com/link/project/${apiDetailItem.projectId}/apis/api-${apiDetailItem.id}${'\n'} */`;
 }
 
 // 辅助函数：构建函数签名
@@ -651,9 +593,7 @@ export function customFunctionReturn(
 
     let customDescription = description.split('\n')
     customDescription.splice(1, 0, ` * 自定义函数：use${apiFunctionName}`)
-    console.log('------>customDescription', customDescription, description.split('\n'))
-    const customFunStr = `\n  \n${description}\n${customFun}${extraFun ? `\n  \n${customDescription.map(item => item.trim()).join('\n')}\n${extraFun}\n` : ''}`;
-    console.log("----->customFunStr", customFunStr);
+    const customFunStr = `\n\n${description}\n${customFun}${extraFun ? `\n  \n${customDescription.map(item => item.trim()).join('\n')}\n${extraFun}\n` : ''}`;
     return customFunStr;
 }
 
@@ -663,8 +603,7 @@ export function getErrorInfo(error: any) {
 
 // 辅助函数：格式化参数
 export function formatParameter(param: ApiDetailParametersQuery): string {
-    return `${param.description ? `/** ${param.description}${param.example ? ` example: ${param.example}` : ""} */` : ""}
-              ${nameFormatter(param.name)}${param.required ? "" : "?"}: ${buildParameters(param)}`;
+    return `${param.description ? `/** ${param.description}${param.example ? ` example: ${param.example}` : ""} */` : ""}\n ${nameFormatter(param.name)}${param.required ? "" : "?"}: ${buildParameters(param)}`;
 }
 // 辅助函数：获取 Prettier 配置
 export function getPrettierSetting(setting: ConfigurationInformation) {
@@ -713,7 +652,7 @@ export function buildApiFunctionHead(
     rootPath: string,
     apiPath: string
 ) {
-    const heardAnnotation = `/* eslint-disable @typescript-eslint/no-unused-vars */ \n // @ts-nocheck: 忽略类型错误 系统工具生成`
+    const heardAnnotation = `/* eslint-disable @typescript-eslint/no-unused-vars */\n// @ts-nocheck: 忽略类型错误 系统工具生成`
     const settingConfig: ProjectConfigInfo =
         getWorkspaceStateUtil().get("AutoApiGen.setting")?.data.configInfo || {};
     if (settingConfig.model === "custom" && settingConfig.head) {
@@ -726,44 +665,47 @@ export function buildApiFunctionHead(
         const importPath = getRelativeImportPath(apiPath, wxApiFileExists)
         return `import { http } from "${importPath}";\nimport type { ${allInterfaceName} } from './interface';\ntype Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
     }
-    return `
-        ${heardAnnotation}
-        ${isNeedQs ? "import qs from 'qs';" : ""}
-        import type { AxiosRequestConfig } from 'axios';
-        import type { ${allInterfaceName} } from './interface';
-        ${axiosQuote}
-        type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
-      `;
+    return `${'\n'}${heardAnnotation}${'\n'}${isNeedQs ? "import qs from 'qs';" : ""}${'\n'}import type { AxiosRequestConfig } from 'axios';${'\n'}import type { ${allInterfaceName} } from './interface';${'\n'}${axiosQuote}${'\n'}type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;${'\n'}`;
 }
 
+let cachedPrettier: any | null = null;
 // 用于缓存加载的 Prettier 插件
 let cachedPlugins: { prettierPluginSortImports?: any; prettierPluginOrganizeImports?: any } | null = null;
 
-// 异步加载 Prettier 插件，非阻塞
-function loadPrettierPluginsAsync() {
-    if (cachedPlugins) return Promise.resolve(cachedPlugins); // 如果已加载，直接返回缓存
-    return (async () => {
+// 异步加载 Prettier 和插件
+async function loadPrettierAndPlugins() {
+    if (!cachedPrettier) {
+        FeedbackHelper.logErrorToOutput(`当前运行环境 Node.js 版本: ${process.versions.node}`, 'Info');
+        FeedbackHelper.logErrorToOutput("开始加载 Prettier 和插件", "Info");
         try {
-            let prettierPluginSortImports = undefined
-            try {
-                prettierPluginSortImports = await import("@trivago/prettier-plugin-sort-imports");
-            } catch (error: any) {
-                FeedbackHelper.logErrorToOutput(`加载 prettier-plugin-sort-imports 插件失败, 请手动格式化: ${error.message}`);        
-            }
-            let prettierPluginOrganizeImports = undefined;
-            try {
-                prettierPluginOrganizeImports = await import("prettier-plugin-organize-imports");
-            } catch (error: any) {
-                FeedbackHelper.logErrorToOutput(`加载 prettier-plugin-organize-imports 插件失败，请手动格式化: ${error.message}`);
-            }
-            cachedPlugins = { prettierPluginSortImports, prettierPluginOrganizeImports };
-            return cachedPlugins;
-        } catch (error: any) {
-            FeedbackHelper.logErrorToOutput(`加载 Prettier 插件失败: ${error.message}`);
-            cachedPlugins = null; // 加载失败时重置缓存
-            return null;
+            cachedPrettier = await import("prettier").then((mod) => mod.default || mod);
+        } catch (error) {
+            FeedbackHelper.logErrorToOutput('加载 Prettier 失败，请手动格式化代码', 'Warning');
+            cachedPrettier = null
         }
-    })();
+    }
+
+    if (!cachedPlugins) {
+        try {
+            const [sortImports, organizeImports] = await Promise.all([
+                import("@trivago/prettier-plugin-sort-imports").then((mod) => mod.default || mod),
+                import("prettier-plugin-organize-imports").then((mod) => mod.default || mod),
+            ]);
+
+            cachedPlugins = {
+                prettierPluginSortImports: sortImports,
+                prettierPluginOrganizeImports: organizeImports,
+            };
+        } catch (error: any) {
+            FeedbackHelper.logErrorToOutput(`Failed to load Prettier plugins: ${error.message}`, 'Warning');
+            cachedPlugins = {}; // 降级为无插件
+        }
+    }
+
+    return {
+        prettier: cachedPrettier,
+        plugins: Object.values(cachedPlugins).filter(Boolean),
+    };
 }
 
 // 辅助函数：格式化代码
@@ -772,31 +714,27 @@ export async function formatCode(
     prettierSetting: Record<string, any>,
     codeType: string
 ) {
-    let extraPrettierSetting = {};
+    try {
+        const { prettier, plugins } = await loadPrettierAndPlugins();
 
-    // 格式化主逻辑，插件加载完成前不阻塞
-    try {
-        const plugins = await loadPrettierPluginsAsync();
-        if (plugins) {
-            const { prettierPluginSortImports, prettierPluginOrganizeImports } = plugins;
-            extraPrettierSetting = {
-                plugins: [prettierPluginSortImports, prettierPluginOrganizeImports],
-                importOrder: ["^@/(.*)$", "^[./]"],
-                importOrderSeparation: true,
-                importOrderSortSpecifiers: true,
-                unusedImports: true,
-            };
+        if (!prettier) {
+            return code; // 如果 Prettier 没有加载成功，则返回原始代码，不进行格式化
         }
+
+        const extraPrettierSetting = {
+            plugins,
+            importOrder: ["^@/(.*)$", "^[./]"],
+            importOrderSeparation: true,
+            importOrderSortSpecifiers: true,
+        };
+
+        const finallyCode = await prettier.format(code, { ...prettierSetting, ...extraPrettierSetting });
+        return finallyCode;
     } catch (error: any) {
-        FeedbackHelper.logErrorToOutput(`prettier 插件加载失败 (${codeType}): ${error.message}`);
-        extraPrettierSetting = {}; // 降级策略：不加载插件
-    }
-    // 尝试格式化代码
-    try {
-        return prettier.format(code, { ...prettierSetting, ...extraPrettierSetting });
-    } catch (formatError: any) {
-        FeedbackHelper.logErrorToOutput(`代码格式化失败，请手动格式化 (${codeType}): ${formatError.message || '未知错误'}`);
-        return code; // 回退到原始代码
+        FeedbackHelper.logErrorToOutput(
+            `代码格式化失败 (${codeType})，请手动格式化: ${error.message || "未知错误"}`, 'Warning'
+        );
+        return code; // 回退原始代码
     }
 }
 
@@ -807,8 +745,6 @@ export async function updateExistingFiles(
     petterSetting: any,
     isInterface = false
 ) {
-    console.log("-------->fun--updateExistingFiles", item, uri.fsPath);
-
     try {
         // 读取文件内容
         let fileContent = fsExtra.readFileSync(uri.fsPath, "utf-8");
@@ -863,7 +799,6 @@ export async function updateExistingFiles(
                 if (!importInterfacePattern.test(fileContent)) {
                     const newImportStatement = `import type { ${responseTypes.join(", ")} } from './interface';\n`;
                     fileContent = newImportStatement + fileContent;
-                    console.log(`已添加新的导入语句：${responseTypes.join(", ")}`);
                 }
                 break;
         }
@@ -873,6 +808,7 @@ export async function updateExistingFiles(
             petterSetting,
             isInterface ? "函数" : "接口定义"
         );
+
         try {
             fsExtra.writeFileSync(uri.fsPath, newFunctionCode, "utf-8");
         } catch (error) {
@@ -924,7 +860,7 @@ function removeTypeDefinitions(fileContent: string, typeName: string) {
 
         // 如果在目标块中，检查是否达到块的结尾
         if (isInTargetBlock) {
-            const isEndOfBlock = line.endsWith("}") || line.endsWith(";");
+            const isEndOfBlock = line.endsWith("}") || line.endsWith("};");
             if (isEndOfBlock) {
                 isInTargetBlock = false; // 退出目标块
             }

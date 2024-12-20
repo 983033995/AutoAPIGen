@@ -141,14 +141,14 @@ export class FeedbackHelper {
      * 将错误信息输出到VSCode的输出面板
      * @param errorMessage 要输出的错误信息
      */
-    public static logErrorToOutput(errorMessage: string): void {
+    public static logErrorToOutput(errorMessage: string, type: 'Info' | 'Warning' | 'Error' = "Error"): void {
         // 如果输出通道不存在，才创建一个
         if (!this.outputChannel) {
             this.outputChannel = vscode.window.createOutputChannel("AutoAPIGen");
         }
 
         // 将错误信息输出到输出通道
-        this.outputChannel.appendLine(`[Error] ${errorMessage}`);
+        this.outputChannel.appendLine(`[${type}] ${errorMessage}`);
 
         // 显示输出面板
         this.outputChannel.show(true);
