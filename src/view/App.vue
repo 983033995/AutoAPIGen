@@ -353,7 +353,9 @@ window.addEventListener('message', (event) => {
                   </div>
                   <div class="cursor-pointer w-8 h-5" v-if="nodeData.type !== 'doc'">
                     <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="(val: string) => handleSelectOperate(val, nodeData)">
-                      <span class="icon-[mdi--more-vert] hidden group-hover:block "></span>
+                      <div class="w-full h-full bg-[rgba(0,0,0,0)]">
+                        <span class="icon-[mdi--more-vert] hidden group-hover:block"></span>
+                      </div>
                       <template #content>
                         <a-doption value="generate">{{ t('operate1') }}</a-doption>
                         <div v-if="nodeData.type !== 'apiDetailFolder'">

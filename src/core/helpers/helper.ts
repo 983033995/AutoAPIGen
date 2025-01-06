@@ -310,6 +310,7 @@ export const cnToPinyin = (cn: string) => {
     .replace(/……/g, '...')
     .replace(/《/g, '<')
     .replace(/》/g, '>')
+    .replace(/%/g, '')
     console.log('-------->path', path, pyArr2)
     return path;
 };

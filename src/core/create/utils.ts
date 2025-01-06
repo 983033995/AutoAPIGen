@@ -1,15 +1,12 @@
 /// <reference path="../../global.d.ts" />
 import * as vscode from "vscode";
 import { getWorkspaceStateUtil } from "../workspace/stateManager";
-// import prettier from "prettier";
-// const prettier = require("prettier");
-// import prettierPluginSortImports from '@trivago/prettier-plugin-sort-imports'
-// import prettierPluginOrganizeImports from 'prettier-plugin-organize-imports'
+const prettier = require("prettier");
+const prettierPluginSortImports = require('@trivago/prettier-plugin-sort-imports');
+const prettierPluginOrganizeImports = require('prettier-plugin-organize-imports');
 import { FeedbackHelper } from "../helpers/feedbackHelper";
-import { firstToLocaleUpperCase } from "../helpers/helper";
+import { firstToLocaleUpperCase, cnToPinyin } from "../helpers/helper";
 const fsExtra = require("fs-extra");
-// import * as utils from "./utils";
-// import { formatTypescriptText } from './formatCode'
 import path from "path";
 
 const apiTypeCollection = ["get", "delete", "head", "options"];
@@ -110,7 +107,9 @@ export function buildParameters(parameters: ApiDetailParametersQuery): string {
 }
 
 export const nameFormatter = (name: string) => {
-    return [".", "[", "]", "-"].some((item) => name.includes(item))
+    const hasSpecialChars = [".", "[", "]", "-"].some((item) => name.includes(item));
+    const hasChineseChars = /[\u4E00-\u9FFF]/.test(name); // 检查是否包含中文字符
+    return hasSpecialChars || hasChineseChars
         ? `\"${name}\"`
         : name;
 };
@@ -242,7 +241,7 @@ export function transformSchema(
 
                 const title = property.title || "";
                 const isRequired = required.includes(key);
-                const typeStr = buildPropertyType(property, key, faceName);
+                const typeStr = buildPropertyType(property, containsChinese(key) ? cnToPinyin(key) : key, faceName);
 
                 resStr += `${title ? `\n    /** ${title} */` : ''}${'\n'}     ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
             }
@@ -295,7 +294,7 @@ export function transformSchema(
                 } else {
                     if (Array.isArray(property.items.type) && property.items.type.some((item: string) => item === 'object' || item === 'array')) {
                         if ('$ref' in (property.items as Record<string, any>).properties) {
-                            return buildPropertyType((property.items as Record<string, any>).properties, key, faceName);
+                            return buildPropertyType((property.items as Record<string, any>).properties, containsChinese(key) ? cnToPinyin(key) : key, faceName);
                         } else {
                             const otherType = property.items.type.filter((item: string) => item !== 'object' && item !== 'array').join(' | ');
                             property.items.type = property.items.type.includes('object') ? 'object' : 'array';
@@ -363,6 +362,11 @@ export function transformSchema(
     }
 
     return res + childrenRes;
+}
+
+function containsChinese(str: string) {
+    const regex = /[\u4E00-\u9FFF]/;
+    return regex.test(str);
 }
 
 // 辅助函数：构建接口路径参数
@@ -663,50 +667,16 @@ export function buildApiFunctionHead(
         const requestDirPath = path.join(rootPath, 'request');
         const wxApiFileExists = path.join(requestDirPath, 'index.ts');
         const importPath = getRelativeImportPath(apiPath, wxApiFileExists)
-        return `import { http } from "${importPath}";\nimport type { ${allInterfaceName} } from './interface';\ntype Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
+        return `import { http } from "${importPath}";${'\n'}${isNeedQs ? "import qs from 'qs';" : ""}\nimport type { ${allInterfaceName} } from './interface';\ntype Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;`
     }
     return `${'\n'}${heardAnnotation}${'\n'}${isNeedQs ? "import qs from 'qs';" : ""}${'\n'}import type { AxiosRequestConfig } from 'axios';${'\n'}import type { ${allInterfaceName} } from './interface';${'\n'}${axiosQuote}${'\n'}type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;${'\n'}`;
 }
 
-let cachedPrettier: any | null = null;
-// 用于缓存加载的 Prettier 插件
-let cachedPlugins: { prettierPluginSortImports?: any; prettierPluginOrganizeImports?: any } | null = null;
-
-// 异步加载 Prettier 和插件
-async function loadPrettierAndPlugins() {
-    if (!cachedPrettier) {
-        FeedbackHelper.logErrorToOutput(`当前运行环境 Node.js 版本: ${process.versions.node}`, 'Info');
-        FeedbackHelper.logErrorToOutput("开始加载 Prettier 和插件", "Info");
-        try {
-            cachedPrettier = await import("prettier").then((mod) => mod.default || mod);
-        } catch (error) {
-            FeedbackHelper.logErrorToOutput('加载 Prettier 失败，请手动格式化代码', 'Warning');
-            cachedPrettier = null
-        }
-    }
-
-    if (!cachedPlugins) {
-        try {
-            const [sortImports, organizeImports] = await Promise.all([
-                import("@trivago/prettier-plugin-sort-imports").then((mod) => mod.default || mod),
-                import("prettier-plugin-organize-imports").then((mod) => mod.default || mod),
-            ]);
-
-            cachedPlugins = {
-                prettierPluginSortImports: sortImports,
-                prettierPluginOrganizeImports: organizeImports,
-            };
-        } catch (error: any) {
-            FeedbackHelper.logErrorToOutput(`Failed to load Prettier plugins: ${error.message}`, 'Warning');
-            cachedPlugins = {}; // 降级为无插件
-        }
-    }
-
-    return {
-        prettier: cachedPrettier,
-        plugins: Object.values(cachedPlugins).filter(Boolean),
-    };
-}
+let cachedPrettier: any | null = prettier;
+let cachedPlugins = {
+    prettierPluginSortImports,
+    prettierPluginOrganizeImports
+};
 
 // 辅助函数：格式化代码
 export async function formatCode(
@@ -715,26 +685,39 @@ export async function formatCode(
     codeType: string
 ) {
     try {
-        const { prettier, plugins } = await loadPrettierAndPlugins();
-
-        if (!prettier) {
-            return code; // 如果 Prettier 没有加载成功，则返回原始代码，不进行格式化
+        if (!cachedPrettier) {
+            FeedbackHelper.logErrorToOutput('Prettier not available, returning unformatted code', 'Warning');
+            return code;
         }
 
         const extraPrettierSetting = {
-            plugins,
+            plugins: Object.values(cachedPlugins).filter(Boolean),
             importOrder: ["^@/(.*)$", "^[./]"],
             importOrderSeparation: true,
             importOrderSortSpecifiers: true,
         };
 
-        const finallyCode = await prettier.format(code, { ...prettierSetting, ...extraPrettierSetting });
-        return finallyCode;
+        const options = {
+            ...prettierSetting,
+            ...extraPrettierSetting,
+            parser: "typescript",
+        };
+
+        const finallyCode = await cachedPrettier.format(code, options);
+        return finallyCode
     } catch (error: any) {
-        FeedbackHelper.logErrorToOutput(
-            `代码格式化失败 (${codeType})，请手动格式化: ${error.message || "未知错误"}`, 'Warning'
-        );
-        return code; // 回退原始代码
+        FeedbackHelper.logErrorToOutput(`Format code error: ${error.message}`, 'Error');
+        // 如果格式化失败，尝试不使用插件重新格式化
+        try {
+            const fallbackOptions = {
+                ...prettierSetting,
+                parser: "typescript",
+            };
+            return cachedPrettier.format(code, fallbackOptions);
+        } catch (fallbackError) {
+            // 如果还是失败，返回原始代码
+            return code;
+        }
     }
 }
 
@@ -761,6 +744,23 @@ export async function updateExistingFiles(
         const code = isInterface
             ? item.apiInterfaceContext
             : item.apiFunctionContext;
+
+        // 检查是否需要导入 qs
+        const needQs = code.includes('${qs.stringify');
+        const hasQsImport = fileContent.includes('import qs from');
+        if (needQs && !hasQsImport) {
+            // 在文件开头添加 qs 导入
+            const qsImport = 'import qs from "qs";\n';
+            // 找到第一个导入语句的位置
+            const firstImportIndex = fileContent.search(/^import/m);
+            if (firstImportIndex >= 0) {
+                // 在第一个导入语句前插入
+                fileContent = fileContent.slice(0, firstImportIndex) + qsImport + fileContent.slice(firstImportIndex);
+            } else {
+                // 如果没有找到导入语句，就在文件开头插入
+                fileContent = qsImport + fileContent;
+            }
+        }
 
         switch (isInterface) {
             case true:
@@ -930,7 +930,7 @@ export async function backupAndReplace(uri: vscode.Uri, content: string) {
  * @param content 文件内容
  */
 async function createFileWithFsExtra(filePath: string, content: string): Promise<void> {
-    const normalizedPath = path.resolve(filePath); // 确保路径规范化
+    const normalizedPath = path.resolve(filePath); // 确保路径格式统一，防止路径中包含空格或特殊字符造成问题
     await fsExtra.ensureDir(path.dirname(normalizedPath)); // 确保父目录存在
     await fsExtra.writeFile(normalizedPath, content, 'utf8'); // 写入文件
 }
