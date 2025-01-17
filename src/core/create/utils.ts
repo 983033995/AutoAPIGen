@@ -107,9 +107,9 @@ export function buildParameters(parameters: ApiDetailParametersQuery): string {
 }
 
 export const nameFormatter = (name: string) => {
-    const hasSpecialChars = [".", "[", "]", "-"].some((item) => name.includes(item));
-    const hasChineseChars = /[\u4E00-\u9FFF]/.test(name); // 检查是否包含中文字符
-    return hasSpecialChars || hasChineseChars
+    // 检查是否包含非英文字母字符
+    const hasNonAlphaChars = /[^a-zA-Z]/.test(name);
+    return hasNonAlphaChars
         ? `\"${name}\"`
         : name;
 };
