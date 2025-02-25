@@ -200,6 +200,7 @@ function buildMethodTemplate(
   apiDetailItem: Partial<ApiDetailListData>,
   axiosQuote: string
 ): { fun: string, interFace: string } {
+  try {
   // 提取参数信息
   const pathParams = apiDetailItem?.parameters?.path || [];
   const queryParams = apiDetailItem?.parameters?.query || [];
@@ -262,4 +263,9 @@ function buildMethodTemplate(
   };
 
   return { ...handler[apiModel](), interFace: exportInterface };
+  } catch (error: any) {
+    FeedbackHelper.logErrorToOutput(`${apiDetailItem.name}--${apiDetailItem.path}构建方法模板失败: ${error ||
+      '未知错误'}`);
+    return { fun: '', interFace: '' };
+  }
 }
