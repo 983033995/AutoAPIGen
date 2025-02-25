@@ -86,6 +86,9 @@ export function buildParameters(parameters: ApiDetailParametersQuery): string {
         number: () => "number",
         boolean: () => "boolean",
         array: () => {
+            if (!schema && !parameters?.items) {
+                return 'any[]';
+            }
             if (schema && schema.items) {
                 const resType = schema.items.format || schema.items.type || "string";
                 return `${getType(resType)}[]`;
@@ -159,7 +162,12 @@ export function buildInterfaceQuery(
 ): string {
     if (!queryParams.length) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口请求Query参数`
-    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export interface ${apiFunctionName}Query {${'\n'}    ${queryParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}     [key: string]: any${'\n'}}${'\n'}`;
+    try {
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export interface ${apiFunctionName}Query {${'\n'}    ${queryParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}     [key: string]: any${'\n'}}${'\n'}`;
+    } catch (error: any) {
+        FeedbackHelper.logErrorToOutput(`${apiDetailItem.name}--${apiDetailItem?.path || ''}构建接口请求Query参数失败：${error.message}`);
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export type ${apiFunctionName}Query = any${'\n'}`;
+    }
 }
 
 // 辅助函数：构建接口请求Body参数
@@ -170,7 +178,11 @@ export function buildInterfaceBody(
 ): string {
     if (!haveReqBody) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口请求Body参数`
-    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}${buildParametersSchema(apiDetailItem.requestBody || {}, `${apiFunctionName}Body`)}${'\n'}`;
+    try {
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}${buildParametersSchema(apiDetailItem.requestBody || {}, `${apiFunctionName}Body`)}${'\n'}`;
+    } catch (error) {
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export type ${`${apiFunctionName}Body`} = any${'\n'}`;
+    }
 }
 
 export function buildParametersSchema(
@@ -377,7 +389,11 @@ export function buildInterfacePathQuery(
 ): string {
     if (pathParams.length <= 1) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口路径参数`
-    return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export interface ${apiFunctionName}PathQuery {${'\n'}    ${pathParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
+    try {
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export interface ${apiFunctionName}PathQuery {${'\n'}    ${pathParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
+    } catch (error) {
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export type ${apiFunctionName}PathQuery = any${'\n'}`;
+    }
 }
 
 // 辅助函数：构建接口响应参数

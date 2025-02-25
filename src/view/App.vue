@@ -4,15 +4,15 @@
 -->
 
 <script setup lang="ts">
-document.body.setAttribute('arco-theme', 'dark')
-const { t, locale } = useI18n()
+document.body.setAttribute('arco-theme', 'dark');
+const { t, locale } = useI18n();
 
-const loading = ref<boolean>(true)
+const loading = ref<boolean>(true);
 
 // 配置信息
-const configInfo = ref<ConfigurationInformation>()
+const configInfo = ref<ConfigurationInformation>();
 
-const apiWorkSpace = ref<string[]>([])
+const apiWorkSpace = ref<string[]>([]);
 
 // 获取配置信息校验结果
 const checkConfigRes = computed(() => {
@@ -21,24 +21,24 @@ const checkConfigRes = computed(() => {
       success: false,
       type: 0,
       message: t('tip')
-    }
+    };
   }
-  const { appName, Authorization } = configInfo.value.configInfo || {}
+  const { appName, Authorization } = configInfo.value.configInfo || {};
 
   if (!appName || !Authorization) {
     return {
       success: false,
       type: 1,
       message: t('tip1')
-    }
+    };
   }
 
   return {
     success: true,
     type: -1,
     message: ''
-  }
-})
+  };
+});
 
 /**
  * 根据ID数组获取树形数据中对应节点的名称列表
@@ -53,7 +53,7 @@ const getNamesByIds = (treeData: TreeNode[], ids: number[]): string[] => {
 
   // 首先，填充id到name的映射
   function buildIdToNameMap(nodes: TreeNode[], parentId: number): void {
-    nodes.forEach(node => {
+    nodes.forEach((node) => {
       idToName.set(node.id, node.name);
       if (node.children) {
         buildIdToNameMap(node.children, node.id);
@@ -84,23 +84,27 @@ const getNamesByIds = (treeData: TreeNode[], ids: number[]): string[] => {
   }
 
   return names;
-}
+};
 
-console.log('------>sendTime', new Date().toLocaleTimeString())
+console.log('------>sendTime', new Date().toLocaleTimeString());
 vscode.postMessage({
-  command: 'getWorkspaceState', data: {
+  command: 'getWorkspaceState',
+  data: {
     init: false
   }
-})
+});
 
 // 监听配置变化
-watch(() => configInfo.value?.theme, (value) => {
-  if (value && value.kind === 2) {
-    document.body.setAttribute('arco-theme', 'dark')
-  } else {
-    document.body.removeAttribute('arco-theme');
+watch(
+  () => configInfo.value?.theme,
+  (value) => {
+    if (value && value.kind === 2) {
+      document.body.setAttribute('arco-theme', 'dark');
+    } else {
+      document.body.removeAttribute('arco-theme');
+    }
   }
-})
+);
 
 /**
  * 打开配置页
@@ -109,14 +113,17 @@ watch(() => configInfo.value?.theme, (value) => {
  */
 const handlerDeployment = () => {
   // vscode.postMessage({ command: 'getWorkspaceState' })
-  const setting = toRaw(configInfo.value?.configInfo) || {}
-  vscode.postMessage({ command: 'openConfigPage', data: { title: t('configPageTitle'), configInfo: setting } })
-}
+  const setting = toRaw(configInfo.value?.configInfo) || {};
+  vscode.postMessage({
+    command: 'openConfigPage',
+    data: { title: t('configPageTitle'), configInfo: setting }
+  });
+};
 
-const apiSearchData = ref('')
+const apiSearchData = ref('');
 
 const clearApiDetailChildren = (nodes: ApiTreeListResData[]): ApiTreeListResData[] => {
-  return nodes.map(node => {
+  return nodes.map((node) => {
     // 深拷贝 children 以避免直接修改原始数组
     const children = clearApiDetailChildren(node.children);
 
@@ -134,12 +141,12 @@ const clearApiDetailChildren = (nodes: ApiTreeListResData[]): ApiTreeListResData
       };
     }
   });
-}
+};
 
 const apiTreeList = computed(() => {
-  const treeList = configInfo.value?.configInfo?.apiTreeList || []
-  return clearApiDetailChildren(treeList)
-})
+  const treeList = configInfo.value?.configInfo?.apiTreeList || [];
+  return clearApiDetailChildren(treeList);
+});
 
 const expandedKeys = ref<(string | number)[]>([])
 
@@ -147,7 +154,10 @@ const searchApiTreeList = (keyword: string) => {
   const loop = (data: ApiTreeListResData[]) => {
     const result: ApiTreeListResData[] = [];
     data.forEach((item: ApiTreeListResData) => {
-      if (item.name.toLowerCase().indexOf(keyword.toLowerCase()) > -1 || (item?.api && item.api.path.toLowerCase().indexOf(keyword.toLowerCase()) > -1)) {
+      if (
+        item.name.toLowerCase().indexOf(keyword.toLowerCase()) > -1 ||
+        (item?.api && item.api.path.toLowerCase().indexOf(keyword.toLowerCase()) > -1)
+      ) {
         result.push({ ...item });
         expandedKeys.value.push(item.key);
       } else if (item.children && item.type === 'apiDetailFolder') {
@@ -156,33 +166,33 @@ const searchApiTreeList = (keyword: string) => {
           result.push({
             ...item,
             children: filterData
-          })
+          });
           expandedKeys.value.push(item.key);
         }
       }
-    })
+    });
     return result;
-  }
+  };
 
   return loop(apiTreeList.value);
-}
+};
 
 const apiTreeData = computed<ApiTreeListResData[]>(() => {
-  if (!apiSearchData.value) return apiTreeList.value
-  return searchApiTreeList(apiSearchData.value)
-})
+  if (!apiSearchData.value) return apiTreeList.value;
+  return searchApiTreeList(apiSearchData.value);
+});
 
 const fieldNames = {
   key: 'key',
-  title: 'name',
-}
+  title: 'name'
+};
 
 const changeSearchData = (val: string) => {
   if (!val) {
-    expandedKeys.value = []
-    console.log('clear', expandedKeys.value)
+    expandedKeys.value = [];
+    console.log('clear', expandedKeys.value);
   }
-}
+};
 
 const apiType: ApiTypeMap = {
   get: {
@@ -216,8 +226,8 @@ const apiType: ApiTypeMap = {
   trace: {
     class: 'icon-[tabler--http-trace]',
     color: 'magenta'
-  },
-}
+  }
+};
 
 const onExpand = (expandedKeysValue: (string | number)[]) => {
   expandedKeys.value = expandedKeysValue
@@ -243,90 +253,116 @@ const countAllChildren = (treeNode: ApiTreeListResData) => {
 
   // 返回当前节点及其子节点中apiDetail类型的总数
   return count;
-}
+};
 
-const treeListLoading = ref(false)
-const treeListTip = ref('数据更新中...')
+const treeListLoading = ref(false);
+const treeListTip = ref('数据更新中...');
 const updateTree = () => {
-  treeListLoading.value = true
-  treeListTip.value = '数据更新中...'
+  treeListLoading.value = true;
+  treeListTip.value = '数据更新中...';
   vscode.postMessage({
-    command: 'getWorkspaceState', data: {
-      init: true,
+    command: 'getWorkspaceState',
+    data: {
+      init: true
     }
-  })
-}
+  });
+};
 
 const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
-  console.log('------>handleSelectOperate', type, data)
-  treeListLoading.value = true
-  treeListTip.value = '请稍候...'
+  console.log('------>handleSelectOperate', type, data);
+  treeListLoading.value = true;
+  treeListTip.value = '请稍候...';
   vscode.postMessage({
-    command: 'interfaceOperate', data: {
+    command: 'interfaceOperate',
+    data: {
       type,
       itemType: data.type,
-      key: data.key,
+      key: data.key
     }
-  })
-}
-
-const handlerTreeClick = (data: ApiTreeListResData) => {
-  console.log('------>handlerTreeClick', data)
-  if (data.type === 'apiDetail') {
-    const treeItemData = {
-      key: data.key,
-      name: data.name,
-      api: toRaw(data.api || {})
-    }
-    console.log('------>treeItemData', treeItemData)
-    vscode.postMessage({
-      command: 'showApiDetail',
-      data: treeItemData
-    })
-  }
-}
-
+  });
+};
+const projectId = ref<number[]>([]);
 window.addEventListener('message', (event) => {
-  const message = event.data
+  const message = event.data;
 
-  console.log('----- getWorkspaceState ------', message)
+  console.log('----- getWorkspaceState ------', message);
   switch (message.command) {
     case 'getWorkspaceState':
-      console.log('------>getTime', new Date().toLocaleTimeString())
-      configInfo.value = message.data
-      apiWorkSpace.value = getNamesByIds(configInfo.value?.configInfo.apiProjectList || [], configInfo.value?.configInfo.projectId || [])
-      loading.value = false
-      treeListLoading.value = false
-      console.log('----- configInfo ------', configInfo.value, checkConfigRes.value)
-      break
+      console.log('------>getTime', new Date().toLocaleTimeString());
+      configInfo.value = message.data;
+      apiWorkSpace.value = getNamesByIds(
+        configInfo.value?.configInfo.apiProjectList || [],
+        configInfo.value?.configInfo.projectId || []
+      );
+      projectId.value = configInfo.value?.configInfo.projectId || [];
+      loading.value = false;
+      treeListLoading.value = false;
+      console.log('----- configInfo ------', configInfo.value, checkConfigRes.value);
+      break;
     case 'loadData':
-      loading.value = true
-      break
+      loading.value = true;
+      break;
     case 'joinEnd':
-      treeListLoading.value = false
-      break
+      treeListLoading.value = false;
+      break;
     // case 'setCurrentFileExample':
     //   lastFile.value = currentFile.value
     //   currentFile.value = message.text
     //   return
   }
-})
-
+});
+const showProjectCascade = ref(false);
+const changeProjectId = (value: number[]) => {
+  showProjectCascade.value = false;
+  console.log('------>changeProjectId', value);
+  treeListLoading.value = true;
+  const configData = { ...JSON.parse(JSON.stringify(toRaw(configInfo.value?.configInfo))) || {}, projectId: toRaw(value) };
+  const { apiDetailList, apiTreeList, apiProjectList, ...rest } = configData;
+  console.log('------>configData', configData);
+  vscode.postMessage({
+    command: 'saveConfig',
+    data: rest
+  });
+};
 </script>
 
 <template>
   <a-spin class="mx-0 w-full h-full bg-[rgba(0,0,0,0)]" dot tip="配置加载中..." :loading="loading">
-    <div class="flex items-center flex-col mx-0 w-full h-full" v-show="!loading">
+    <div class="flex items-center flex-col mx-0 w-full h-full" v-if="!loading">
       <div class="flex w-full items-center">
-        <div class="text-[16px]"><span class="icon-[logos--fastapi-icon]"></span></div>
-        <div class="flex-1 overflow-hidden mx-[8px]">
-          <a-breadcrumb :style="{ fontSize: `12px` }">
-            <a-breadcrumb-item v-for="(item, index) in apiWorkSpace.length ? apiWorkSpace : ['AutoApiGen']" :key="index">{{ item }}</a-breadcrumb-item>
-            <template #item-render></template>
-          </a-breadcrumb>
+        <div class="flex-1 mx-[8px] relative">
+          <a-trigger trigger="click" :unmount-on-close="false" position="tl" v-model="showProjectCascade">
+            <a-breadcrumb :style="{ fontSize: `12px` }">
+              <a-breadcrumb-item class="cursor-pointer">
+                <div class="text-[16px]"><span class="icon-[logos--fastapi-icon]"></span></div>
+              </a-breadcrumb-item>
+              <a-breadcrumb-item
+                class="cursor-pointer"
+                v-for="(item, index) in apiWorkSpace.length ? apiWorkSpace : ['AutoApiGen']"
+                :key="index"
+                >{{ item }}</a-breadcrumb-item
+              >
+              <template #item-render></template>
+            </a-breadcrumb>
+            <template #content>
+              <a-cascader-panel
+                v-model="projectId"
+                :options="configInfo?.configInfo.apiProjectList || []"
+                path-mode
+                :field-names="{ label: 'name', value: 'id' }"
+                :expand-child="true"
+                @change="(value) => changeProjectId(value as number[])"
+              />
+            </template>
+          </a-trigger>
         </div>
         <a-tooltip :content="t('tip7')" mini position="lt">
-          <a-button type="text" class="w-[32px]" style="margin: 0; padding: 0;" @click="handlerDeployment">
+          <a-button
+            type="text"
+            class="w-[32px]"
+            style="margin: 0; padding: 0"
+            @click="handlerDeployment"
+          >
             <span class="icon-[hugeicons--system-update-01] text-[18px]"></span>
           </a-button>
         </a-tooltip>
@@ -334,12 +370,22 @@ window.addEventListener('message', (event) => {
 
       <a-divider dashed margin="10px" />
 
-      <a-spin dot :tip="treeListTip" :loading="treeListLoading" class="w-full flex-1 overflow-hidden">
+      <a-spin
+        dot
+        :tip="treeListTip"
+        :loading="treeListLoading"
+        class="w-full flex-1 overflow-hidden"
+      >
         <div v-if="checkConfigRes.success" class="w-full h-full overflow-hidden flex-col flex">
           <div class="w-full flex justify-between">
             <div class="flex-1">
-              <a-input-search class="flex-1" v-model="apiSearchData" allow-clear
-                :placeholder="t('apiSearchDataPlaceholder')" @input="changeSearchData" />
+              <a-input-search
+                class="flex-1"
+                v-model="apiSearchData"
+                allow-clear
+                :placeholder="t('apiSearchDataPlaceholder')"
+                @input="changeSearchData"
+              />
             </div>
             <div class="ml-2 w-32px">
               <a-tooltip :content="t('tip6')" mini position="lt">
@@ -349,7 +395,7 @@ window.addEventListener('message', (event) => {
               </a-tooltip>
             </div>
           </div>
-  
+
           <div class="w-full flex-1 overflow-y-auto">
             <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
               :expanded-keys="expandedKeys" show-line @expand="onExpand">
@@ -365,7 +411,11 @@ window.addEventListener('message', (event) => {
                     :style="{ color: apiType[nodeData.api.method as keyof ApiTypeMap].color }"></span>
                   <div class="ml-2 flex-1 mr-2">
                     {{ nodeData?.name }}
-                    <span v-if="nodeData.type === 'apiDetailFolder'" class="opacity-60 text-3 ml-[6px]">({{ countAllChildren(nodeData) }})</span>
+                    <span
+                      v-if="nodeData.type === 'apiDetailFolder'"
+                      class="opacity-60 text-3 ml-[6px]"
+                      >({{ countAllChildren(nodeData) }})</span
+                    >
                   </div>
                   <div class="cursor-pointer w-8 h-5" v-if="nodeData.type !== 'doc'">
                     <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="val => handleSelectOperate(val = '', nodeData)">
@@ -388,7 +438,7 @@ window.addEventListener('message', (event) => {
             </a-tree>
           </div>
         </div>
-  
+
         <div class="h-full flex flex-col items-center justify-center w-full overflow-y-auto" v-else>
           <a-result status="404" class="mt-[-5rem]">
             <template #title>
@@ -396,8 +446,13 @@ window.addEventListener('message', (event) => {
             </template>
             <template #extra>
               <a-space>
-                <a-button type='primary' size="small" class="rounded-lg" @click="handlerDeployment">{{ t('tip2')
-                }}</a-button>
+                <a-button
+                  type="primary"
+                  size="small"
+                  class="rounded-lg"
+                  @click="handlerDeployment"
+                  >{{ t('tip2') }}</a-button
+                >
                 <a-button type="outline" size="small" class="rounded-lg">{{ t('tip3') }}</a-button>
               </a-space>
             </template>
@@ -405,4 +460,5 @@ window.addEventListener('message', (event) => {
         </div>
       </a-spin>
     </div>
-</a-spin></template>
+  </a-spin>
+</template>
