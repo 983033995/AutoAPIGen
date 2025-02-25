@@ -6,6 +6,7 @@
 import * as vscode from 'vscode'
 import { BaseViewProvider } from './core/webview/BaseViewProvider'
 import { generateConfigPage } from './core/webview/configPageProvider'
+import { generateApiDetailPage } from './core/webview/apiDetailPageProvider'
 import { initializeWorkspaceStateUtil } from './core/workspace/stateManager'
 
 export function activate(context: vscode.ExtensionContext) {
@@ -75,6 +76,60 @@ export function activate(context: vscode.ExtensionContext) {
         }
     })
     context.subscriptions.push(closeConfigPanel)
+
+    // 打开接口详情页
+    let apiDetailPanel: vscode.WebviewPanel | undefined = undefined;
+    const showApiDetailPanel = async (title: string, data: any) => {
+        try {
+            const columnToShowIn = vscode.window.activeTextEditor
+                ? vscode.window.activeTextEditor.viewColumn
+                : undefined;
+
+            // 更新或创建面板
+            if (!apiDetailPanel) {
+                apiDetailPanel = vscode.window.createWebviewPanel(
+                    'ApiDetail',
+                    'Api Detail',
+                    vscode.ViewColumn.Beside,
+                    {
+                        enableScripts: true,
+                        localResourceRoots: [context.extensionUri, vscode.Uri.joinPath(context.extensionUri, 'dist/compiled'), vscode.Uri.joinPath(context.extensionUri, 'dist')],
+                        retainContextWhenHidden: true
+                    }
+                );
+                apiDetailPanel.reveal(vscode.ViewColumn.Beside);
+                // 注册面板关闭事件
+                apiDetailPanel.onDidDispose(() => {
+                    apiDetailPanel = undefined;
+                }, null, context.subscriptions);
+            }
+
+            // 显示面板
+            apiDetailPanel.reveal(columnToShowIn);
+
+            // 更新面板内容
+            const httpType = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace'];
+            const iconPath = vscode.Uri.joinPath(
+                context.extensionUri,
+                'dist/compiled',
+                `${httpType.includes(data.method) ? data.method : 'http'}.png`
+            );
+
+            apiDetailPanel.title = title;
+            apiDetailPanel.iconPath = iconPath;
+            apiDetailPanel.webview.html = generateApiDetailPage(apiDetailPanel.webview, context);
+            apiDetailPanel.webview.postMessage(data);
+        } catch (error) {
+            vscode.window.showErrorMessage(`打开接口详情页失败: ${error instanceof Error ? error.message : String(error)}`);
+            if (apiDetailPanel) {
+                apiDetailPanel.dispose();
+                apiDetailPanel = undefined;
+            }
+        }
+    };
+
+    const disposable2 = vscode.commands.registerCommand('AutoAPIGen.showApiDetailPanel', showApiDetailPanel);
+    context.subscriptions.push(disposable2);
 
     // 复制文本内容
     const copyTextDisposable = vscode.commands.registerCommand('AutoAPIGen.copyToClipboard', async (text: string) => {

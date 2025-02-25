@@ -1,6 +1,6 @@
 /*
  * @FilePath: /AutoAPIGen/src/core/messenger.ts
- * @Description:
+ * @Description: 
  */
 /// <reference path="../global.d.ts" />
 import * as vscode from "vscode";
@@ -39,6 +39,7 @@ const webviewCollection: Record<
 > = {
   configPageProvider: undefined,
   BaseViewProvider: undefined,
+  apiDetailPageProvider: undefined,
 };
 
 /**
@@ -227,6 +228,16 @@ const receiveMessages = (
             data: true,
           });
         },
+        // 显示接口详情
+        showApiDetail: () => {
+          console.log('------->showApiDetail', data)
+          const { name: title, api } = data;
+          vscode.commands.executeCommand(
+            "AutoAPIGen.showApiDetailPanel",
+            title,
+            api
+          );
+        }
       };
 
       handler[command] && (await handler[command]());
@@ -246,8 +257,11 @@ const receiveMessages = (
  *
  * @param webview vscode 的 Webview 对象
  */
-const sendMessages = (webview: vscode.Webview) => {
+const sendMessages = (webview: vscode.Webview, key: WebviewCollectionKey) => {
+  console.log('------>sendMessages', key)
+  // 监听当前激活的文本编辑器变化，并发送消息到 webview
   vscode.window.onDidChangeActiveTextEditor(async (editor) => {
+    console.log('------>onDidChangeActiveTextEditor', key, editor)
     if (!editor) return;
 
     const currentFile = editor.document.fileName;
@@ -257,6 +271,18 @@ const sendMessages = (webview: vscode.Webview) => {
       text: currentFile,
     });
   });
+
+  if (key === 'apiDetailPageProvider') {
+    const configInfo =
+            getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
+              ?.configInfo || {};
+    webview.postMessage({
+      command: "setApiDetail",
+      data: {
+        api: configInfo
+      }
+    });
+  }
 };
 
 /**
@@ -272,7 +298,7 @@ export const handleMessages = (
   key: WebviewCollectionKey
 ) => {
   receiveMessages(webview, context, key);
-  sendMessages(webview);
+  sendMessages(webview, key);
   webviewCollection[key] = webview;
 };
 

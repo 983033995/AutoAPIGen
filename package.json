@@ -51,6 +51,10 @@
         "title": "showConfigPagePanel"
       },
       {
+        "command": "AutoAPIGen.showApiDetailPanel",
+        "title": "showApiDetailPanel"
+      },
+      {
         "command": "AutoAPIGen.closeConfigPagePanel",
         "title": "closeConfigPagePanel"
       },
@@ -60,9 +64,12 @@
       }
     ],
     "activationEvents": [
+      "onCommand:extension.start",
+      "onLanguage:javascript",
       "onView: base-view-sidebar",
       "onCommand:AutoAPIGen.showConfigPagePanel",
       "onCommand:AutoAPIGen.closeConfigPagePanel",
+      "onCommand:AutoAPIGen.showApiDetailPanel",
       "onCommand:AutoAPIGen.copyToClipboard"
     ]
   },

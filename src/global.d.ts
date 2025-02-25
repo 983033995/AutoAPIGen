@@ -17,7 +17,7 @@ type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
 
 type AppCollections = 'apifox' | 'postman' | 'apipost'
 
-type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd'
+type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd' | 'showApiDetail'
 
 type WebviewMessageCollection = Record<WebviewMessageKey, (...args: any[]) => any>
 
@@ -142,7 +142,7 @@ type ApiTreeListResData = {
   api?: apiDetailItem
 }
 
-type WebviewCollectionKey = 'configPageProvider' | 'BaseViewProvider'
+type WebviewCollectionKey = 'configPageProvider' | 'BaseViewProvider' | 'apiDetailPageProvider'
 
 type WebviewMessageCommand = 'openConfigPage' | 'getWorkspaceState' | 'setWorkspaceState' | 'getFolders' | 'saveConfig' | 'getProjectList'
 

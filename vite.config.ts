@@ -67,7 +67,8 @@ module.exports = defineConfig({
 			},
 			input: {
 				index: './src/view/index.ts',
-				config: './src/view/config/index.ts'
+				config: './src/view/config/index.ts',
+				api: './src/view/apiDetail/index.ts',
 			},
 		},
 		minify: 'esbuild',

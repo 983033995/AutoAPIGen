@@ -141,7 +141,7 @@ const apiTreeList = computed(() => {
   return clearApiDetailChildren(treeList)
 })
 
-const expandedKeys = ref<string[]>([])
+const expandedKeys = ref<(string | number)[]>([])
 
 const searchApiTreeList = (keyword: string) => {
   const loop = (data: ApiTreeListResData[]) => {
@@ -219,11 +219,11 @@ const apiType: ApiTypeMap = {
   },
 }
 
-const onExpand = (expandedKeysValue: string[]) => {
+const onExpand = (expandedKeysValue: (string | number)[]) => {
   expandedKeys.value = expandedKeysValue
 }
 
-const treeItemRef = ref<Record<string, Element>>({})
+const treeItemRef = ref<Record<string, HTMLElement>>({})
 const countAllChildren = (treeNode: ApiTreeListResData) => {
   // 初始化计数器为0
   let count = 0;
@@ -268,6 +268,22 @@ const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
       key: data.key,
     }
   })
+}
+
+const handlerTreeClick = (data: ApiTreeListResData) => {
+  console.log('------>handlerTreeClick', data)
+  if (data.type === 'apiDetail') {
+    const treeItemData = {
+      key: data.key,
+      name: data.name,
+      api: toRaw(data.api || {})
+    }
+    console.log('------>treeItemData', treeItemData)
+    vscode.postMessage({
+      command: 'showApiDetail',
+      data: treeItemData
+    })
+  }
 }
 
 window.addEventListener('message', (event) => {
@@ -336,23 +352,23 @@ window.addEventListener('message', (event) => {
   
           <div class="w-full flex-1 overflow-y-auto">
             <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
-              :expanded-keys="expandedKeys" @expand="onExpand">
+              :expanded-keys="expandedKeys" show-line @expand="onExpand">
               <template #title="nodeData">
-                <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="(el: Element) => treeItemRef[nodeData.key.replace('.', '_')] = el">
+                <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="el => treeItemRef[nodeData.key.replace('.', '_')] = el" @click="handlerTreeClick(nodeData)">
                   <span v-if="nodeData.type === 'apiDetailFolder'">
                     <span class="icon-[noto--file-folder]"></span>
                   </span>
                   <span v-else-if="nodeData.type === 'doc'">
                     <span class="icon-[hugeicons--google-doc]"></span>
                   </span>
-                  <span v-else :class="apiType[nodeData.api.method as keyof ApiTypeMap].class" class="text-lg font-bold"
+                  <span v-else :class="[apiType[nodeData.api.method as keyof ApiTypeMap].class, 'text-lg font-bold']"
                     :style="{ color: apiType[nodeData.api.method as keyof ApiTypeMap].color }"></span>
                   <div class="ml-2 flex-1 mr-2">
                     {{ nodeData?.name }}
                     <span v-if="nodeData.type === 'apiDetailFolder'" class="opacity-60 text-3 ml-[6px]">({{ countAllChildren(nodeData) }})</span>
                   </div>
                   <div class="cursor-pointer w-8 h-5" v-if="nodeData.type !== 'doc'">
-                    <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="(val: string) => handleSelectOperate(val, nodeData)">
+                    <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="val => handleSelectOperate(val = '', nodeData)">
                       <div class="w-full h-full bg-[rgba(0,0,0,0)]">
                         <span class="icon-[mdi--more-vert] hidden group-hover:block"></span>
                       </div>
