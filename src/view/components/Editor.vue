@@ -1,5 +1,5 @@
 <script lang="ts" setup name="aceEditor">
-import * as monaco from 'monaco-editor';
+import { onMounted, ref, defineProps } from 'vue';
 import loader from '@monaco-editor/loader';
 
 interface IProps {
@@ -18,6 +18,20 @@ const emit = defineEmits(['update:modelValue']);
 
 const editorContainer = ref<HTMLElement | null>(null);
 let editor: monaco.editor.IStandaloneCodeEditor | null = null;
+
+// 设置CDN或仅加载必要模块
+loader.config({
+  paths: {
+    // 可选用CDN
+    vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs'
+  },
+  // 或者仅加载必要模块
+  'vs/editor/editor.main': {
+    format: 'iife',
+    moduleName: 'monaco',
+    load: () => import('monaco-editor/esm/vs/editor/editor.api')
+  }
+});
 
 const setupMonaco = async () => {
   const monacoInstance = await loader.init();

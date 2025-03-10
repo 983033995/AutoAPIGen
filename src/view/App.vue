@@ -1,5 +1,5 @@
 <!--
- * @FilePath: /AutoAPIGen/src/view/App.vue
+ * @FilePath: /vscode插件/AutoAPIGen/src/view/App.vue
  * @Description: 
 -->
 
@@ -414,7 +414,7 @@ const changeProjectId = (value: number[]) => {
             <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
               :expanded-keys="expandedKeys" @expand="onExpand">
               <template #title="nodeData">
-                <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="el => treeItemRef[nodeData.key.replace('.', '_')] = el" @click="handlerTreeClick(nodeData)">
+                <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="(el: HTMLElement | null) => el && (treeItemRef[nodeData.key.replace('.', '_')] = el)" @click="handlerTreeClick(nodeData)">
                   <span v-if="nodeData.type === 'apiDetailFolder'">
                     <span class="icon-[noto--file-folder]"></span>
                   </span>
@@ -432,8 +432,8 @@ const changeProjectId = (value: number[]) => {
                     >
                   </div>
                   <div class="cursor-pointer w-8 h-5" v-if="nodeData.type !== 'doc'">
-                    <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="val => handleSelectOperate(val = '', nodeData)">
-                      <div class="w-full h-full bg-[rgba(0,0,0,0)]">
+                    <a-dropdown trigger="hover" :popup-container="treeItemRef[nodeData.key.replace('.', '_')]" @select="(val, e) => { e.stopPropagation(); handleSelectOperate(val, nodeData); }">
+                      <div class="w-full h-full bg-[rgba(0,0,0,0)]" @click.stop>
                         <span class="icon-[mdi--more-vert] hidden group-hover:block"></span>
                       </div>
                       <template #content>
