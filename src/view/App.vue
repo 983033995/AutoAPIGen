@@ -267,7 +267,21 @@ const updateTree = () => {
     }
   });
 };
-
+const handlerTreeClick = (data: ApiTreeListResData) => {
+  console.log('------>handlerTreeClick', data)
+  if (data.type === 'apiDetail') {
+    const treeItemData = {
+      key: data.key,
+      name: data.name,
+      api: toRaw(data.api || {})
+    }
+    console.log('------>treeItemData', treeItemData)
+    vscode.postMessage({
+      command: 'showApiDetail',
+      data: treeItemData
+    })
+  }
+}
 const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
   console.log('------>handleSelectOperate', type, data);
   treeListLoading.value = true;
@@ -398,7 +412,7 @@ const changeProjectId = (value: number[]) => {
 
           <div class="w-full flex-1 overflow-y-auto">
             <a-tree :data="apiTreeData" class="w-full" :field-names="fieldNames" block-node :default-expand-all="false"
-              :expanded-keys="expandedKeys" show-line @expand="onExpand">
+              :expanded-keys="expandedKeys" @expand="onExpand">
               <template #title="nodeData">
                 <div class="w-full flex group items-center" :style="{ cursor: nodeData.type === 'apiDetailFolder' ? 'default' : 'pointer' }" :ref="el => treeItemRef[nodeData.key.replace('.', '_')] = el" @click="handlerTreeClick(nodeData)">
                   <span v-if="nodeData.type === 'apiDetailFolder'">

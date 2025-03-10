@@ -17,7 +17,7 @@ type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
 
 type AppCollections = 'apifox' | 'postman' | 'apipost'
 
-type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd' | 'showApiDetail'
+type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd' | 'showApiDetail' | 'getApiDetail'
 
 type WebviewMessageCollection = Record<WebviewMessageKey, (...args: any[]) => any>
 
@@ -163,7 +163,7 @@ interface TreeNode {
 }
 
 // 全部的空间缓存数据
-type WorkspaceStateKey = 'AutoApiGen.ApiProjectList' | 'AutoApiGen.ApiTreeList' | 'AutoApiGen.ApiDetailList' | 'AutoApiGen.setting' | 'AutoApiGen.ApiDataSchemas' | 'AutoApiGen.UserProjects'
+type WorkspaceStateKey = 'AutoApiGen.ApiProjectList' | 'AutoApiGen.ApiTreeList' | 'AutoApiGen.ApiDetailList' | 'AutoApiGen.setting' | 'AutoApiGen.ApiDataSchemas' | 'AutoApiGen.UserProjects' | 'AutoApiGen.ProjectMembers'
 type WorkspaceStateData = {
   updateTime: number,
   data: any
@@ -274,6 +274,8 @@ interface ApiDetailParameters {
 interface ApiDetailListData {
   id: number;
   name: string;
+  creatorName: string
+  editorName: string
   type: string;
   serverId: string;
   preProcessors: any[]; // Replace with specific type if needed
@@ -290,6 +292,11 @@ interface ApiDetailListData {
   requestBody: {
     type: string;
     parameters: any[]; // Replace with specific type if needed
+    example?: string;
+    examples?: {
+      value: string;
+      [key: string]: any
+    }[];
     jsonSchema: {
       type: string;
       required: string[];
@@ -304,6 +311,7 @@ interface ApiDetailListData {
         };
       }
       "x-apifox-orders"?: string[];
+      [key: string]: any
     };
   };
   parameters: ApiDetailParameters
@@ -415,3 +423,38 @@ interface ApiDetailGather extends apiDetailItem {
   interfaceResName: string
 }
 declare module 'prettier-plugin-organize-imports';
+
+interface ProjectMemberUser {
+  id: number
+  deletedAt: any
+  name: string
+  username: string
+  email: string
+  employeeNumber: any
+  bio: string
+  tokenRefreshVersion: number
+  deviceIds: any[]
+  webDeviceIds: any[]
+  allowDeviceCount: number
+  status: number
+  mobile: any
+  features: Record<string, any>
+  accessedAt: any
+  createdAt: string
+  updatedAt: string
+  avatar: string
+}
+
+interface ProjectMember {
+  id: number
+  createdAt: string
+  updatedAt: string
+  teamId: number
+  userId: number
+  projectId: number
+  roleType: number
+  lastActiveTime: string
+  user: ProjectMemberUser
+  nickname: string
+  roleName: string
+}

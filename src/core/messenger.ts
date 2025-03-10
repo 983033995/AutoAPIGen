@@ -24,6 +24,7 @@ import {
   getApiDetailList,
   getApiTreeList,
   getDataSchemas,
+  getProjectMembers
 } from "./http/data";
 import { getWorkspaceStateUtil } from "./workspace/stateManager";
 import { generateFile } from "../core/create/index";
@@ -41,6 +42,24 @@ const webviewCollection: Record<
   BaseViewProvider: undefined,
   apiDetailPageProvider: undefined,
 };
+
+const setProjectMembers = async () => {
+  const projectIds = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data.configInfo.projectId
+  const UserProjects = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
+  const project = UserProjects.find((item: Record<string, any>) => item.id === projectIds[projectIds.length - 1])
+  let projectMembers: ProjectMember[] | [] = []
+  if (project) {
+    try {
+      projectMembers = await getProjectMembers(project.teamId)
+    } catch (error) {
+      console.error('获取项目成员失败', error)
+    }
+  }
+  getWorkspaceStateUtil().set('AutoApiGen.ProjectMembers', {
+    updateTime: Date.now(),
+    data: projectMembers || []
+  })
+}
 
 /**
  * 接收来自webview的消息
@@ -69,6 +88,7 @@ const receiveMessages = (
         // 初始化配置信息
         getWorkspaceState: async () => {
           await getWorkspaceState(webview, context, command, key, data.init);
+          setProjectMembers()
         },
         setWorkspaceState: () => { },
         // 获取当前工作区目录
@@ -77,6 +97,21 @@ const receiveMessages = (
           webview.postMessage({
             command,
             data: folders,
+          });
+        },
+        // 获取接口详情
+        getApiDetail: async () => {
+          const apiDetailList: ApiDetailListData[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDetailList')?.data || []
+          const apiID = data?.id || ''
+          const apiDetail = apiDetailList.find(item => item.id === apiID)
+          const projectMembers: ProjectMember[] | [] = getWorkspaceStateUtil().get('AutoApiGen.ProjectMembers')?.data || []
+          if (projectMembers.length && apiDetail) {
+            apiDetail.creatorName = projectMembers.find(item => item.userId === apiDetail.creatorId)?.nickname || ''
+            apiDetail.editorName = projectMembers.find(item => item.userId === apiDetail.editorId)?.nickname || ''
+          }
+          webview.postMessage({
+            command: "setApiDetail",
+            data: apiDetail
           });
         },
         // 保存配置信息
@@ -94,7 +129,7 @@ const receiveMessages = (
             webviewCollection.BaseViewProvider?.postMessage({
               command: "loadData",
             });
-            await getWorkspaceState(
+            getWorkspaceState(
               webviewCollection.BaseViewProvider as vscode.Webview,
               context,
               "getWorkspaceState",
@@ -110,6 +145,7 @@ const receiveMessages = (
               },
             });
           }
+          setProjectMembers()
         },
         // 获取项目列表树形结构
         getProjectList: async () => {
@@ -147,23 +183,23 @@ const receiveMessages = (
           console.log("----->filePathList", filePathList);
           const getApiInfo = () => {
             const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-              const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
-              const { path: relativePath, api } = filePathList[0]
-              let projectName = ''
-              if (setting.configInfo?.useProjectName) {
-                const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
-                console.log('------>projectList', projectList)
-                const projectIds = setting.configInfo.projectId || []
-                projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
-              }
-              // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
-              const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
-              const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
-              const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
-              return {
-                apiFunctionPath,
-                apiFunctionName,
-              }
+            const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
+            const { path: relativePath, api } = filePathList[0]
+            let projectName = ''
+            if (setting.configInfo?.useProjectName) {
+              const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
+              console.log('------>projectList', projectList)
+              const projectIds = setting.configInfo.projectId || []
+              projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
+            }
+            // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
+            const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
+            const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
+            const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
+            return {
+              apiFunctionPath,
+              apiFunctionName,
+            }
           }
           const handler = {
             generate: async () => {
@@ -272,17 +308,6 @@ const sendMessages = (webview: vscode.Webview, key: WebviewCollectionKey) => {
     });
   });
 
-  if (key === 'apiDetailPageProvider') {
-    const configInfo =
-            getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
-              ?.configInfo || {};
-    webview.postMessage({
-      command: "setApiDetail",
-      data: {
-        api: configInfo
-      }
-    });
-  }
 };
 
 /**
@@ -295,12 +320,18 @@ const sendMessages = (webview: vscode.Webview, key: WebviewCollectionKey) => {
 export const handleMessages = (
   webview: vscode.Webview,
   context: vscode.ExtensionContext,
-  key: WebviewCollectionKey
+  key: WebviewCollectionKey,
 ) => {
   receiveMessages(webview, context, key);
   sendMessages(webview, key);
   webviewCollection[key] = webview;
 };
+
+interface WorkspaceStateResult {
+  haveSetting: boolean;
+  theme: vscode.ColorTheme;
+  configInfo?: ProjectConfigInfo;
+}
 
 /**
  * 获取工作区状态
@@ -309,7 +340,8 @@ export const handleMessages = (
  * @param context 扩展上下文
  * @param command 命令字符串
  * @param key webview 集合键
- * @returns 无返回值，通过 webview.postMessage 发送结果
+ * @param isInit 是否为初始化调用
+ * @returns Promise<void>
  */
 async function getWorkspaceState(
   webview: vscode.Webview,
@@ -317,22 +349,23 @@ async function getWorkspaceState(
   command: string,
   key: WebviewCollectionKey,
   isInit = false
-) {
+): Promise<void> {
+  const sendStateToWebview = (result: WorkspaceStateResult): void => {
+    webview.postMessage({
+      command,
+      data: result
+    });
+  };
+
   try {
-    const defaultSetting = getWorkspaceStateUtil().getWithDefault(
-      "AutoApiGen.setting",
-      {
-        updateTime: Date.now(),
-        data: {
-          language: "zh",
-        },
-      }
-    )?.data;
+    const defaultSetting = getWorkspaceStateUtil().getWithDefault("AutoApiGen.setting", {
+      updateTime: Date.now(),
+      data: { language: "zh" }
+    })?.data;
 
-    // 读取配置文件
     let haveSetting = await checkFolderOrFileExists(SETTING_FILE_URL);
-
     let settingObj: ProjectConfigInfo = {};
+
     if (haveSetting) {
       const settingFileUrl = vscode.Uri.joinPath(
         workspaceFolders[0].uri,
@@ -341,84 +374,45 @@ async function getWorkspaceState(
       const settingFile = await getText(settingFileUrl);
       settingObj = settingFile ? JSON.parse(settingFile) : {};
 
-      // 有了配置文件，配置对应应用的接口请求
-      if (
+      const isValidConfig = (
         settingObj.Authorization &&
         settingObj.appName &&
-        Array.isArray(settingObj.projectId) &&
-        settingObj.projectId.length > 0
-      ) {
-        const projectId = settingObj.projectId[settingObj.projectId.length - 1];
-        await initHttp(settingObj.appName, {
+        Array.isArray(settingObj?.projectId) &&
+        (settingObj?.projectId?.length ?? 0) > 0
+      );
+
+      if (isValidConfig) {
+        const projectId = settingObj?.projectId?.[settingObj?.projectId?.length - 1] ?? "";
+        const appName = settingObj.appName as AppCollections;
+        if (!appName) {
+          throw new Error("appName is required");
+        }
+        await initHttp(appName, {
           projectId,
-          Authorization: settingObj?.Authorization,
+          Authorization: settingObj.Authorization
         });
+
         const state = getWorkspaceStateUtil().getAll();
-        // 从侧边栏发送的消息
+
         if (key === "BaseViewProvider") {
-          const detailListHas = getWorkspaceStateUtil().hasActive(
-            "AutoApiGen.ApiDetailList"
-          );
-          const treeListHas = getWorkspaceStateUtil().hasActive(
-            "AutoApiGen.ApiTreeList"
-          );
-          const dataSchemasHas = getWorkspaceStateUtil().hasActive(
-            "AutoApiGen.ApiDataSchemas"
-          );
-          if (!isInit && detailListHas && treeListHas && dataSchemasHas) {
-            settingObj.apiDetailList = state["AutoApiGen.ApiDetailList"]?.data;
-            settingObj.apiTreeList = state["AutoApiGen.ApiTreeList"]?.data;
-          } else {
-            const [apiTreeList, apiDetail, apiDataSchemas] = await Promise.all([
-              getApiTreeList(projectId),
-              getApiDetailList(),
-              getDataSchemas(projectId),
-            ]);
-            // const apiTreeList = await getApiTreeList(projectId)
-            getWorkspaceStateUtil().set("AutoApiGen.ApiTreeList", {
-              updateTime: Date.now(),
-              data: apiTreeList || [],
-            });
-            settingObj.apiTreeList = apiTreeList;
-            // const apiDetail = await getApiDetailList()
-            getWorkspaceStateUtil().set("AutoApiGen.ApiDetailList", {
-              updateTime: Date.now(),
-              data: apiDetail || [],
-            });
-            settingObj.apiDetailList = apiDetail;
-            getWorkspaceStateUtil().set("AutoApiGen.ApiDataSchemas", {
-              updateTime: Date.now(),
-              data: apiDataSchemas || [],
-            });
-            settingObj.apiDataSchemas = apiDataSchemas;
-          }
+          await handleBaseViewProviderState(settingObj, state, +projectId, isInit);
         }
-        if (
-          !isInit &&
-          getWorkspaceStateUtil().hasActive("AutoApiGen.ApiProjectList")
-        ) {
-          settingObj.apiProjectList = state["AutoApiGen.ApiProjectList"]?.data;
-        } else {
-          const projectList = await getProjectList();
-          settingObj.apiProjectList = projectList;
-          getWorkspaceStateUtil().set("AutoApiGen.ApiProjectList", {
-            updateTime: Date.now(),
-            data: projectList || [],
-          });
-        }
+
+        await handleProjectListState(settingObj, state, isInit);
       } else {
         haveSetting = false;
       }
     }
-    console.log("------>settingObj", settingObj);
+
+    const { apiDetailList, apiProjectList, apiTreeList, ...rest } = settingObj;
     const result: ConfigurationInformation = {
       ...defaultSetting,
       workspaceFolders,
       haveSetting,
       configInfo: settingObj,
-      theme: vscode.window.activeColorTheme,
+      theme: vscode.window.activeColorTheme
     };
-    const { apiDetailList, apiProjectList, apiTreeList, ...rest } = settingObj;
+
     getWorkspaceStateUtil().set("AutoApiGen.setting", {
       updateTime: Date.now(),
       data: {
@@ -426,23 +420,74 @@ async function getWorkspaceState(
         workspaceFolders,
         haveSetting,
         theme: vscode.window.activeColorTheme,
-        configInfo: rest,
-      },
+        configInfo: rest
+      }
     });
-    console.log("---->result", result.configInfo);
-    webview.postMessage({
-      command,
-      data: result,
-    });
+
+    sendStateToWebview(result);
   } catch (error) {
     console.error("getWorkspaceState:", error);
-    webview.postMessage({
-      command,
-      data: {
-        haveSetting: false,
-        theme: vscode.window.activeColorTheme,
-      },
+    sendStateToWebview({
+      haveSetting: false,
+      theme: vscode.window.activeColorTheme
     });
     vscode.window.showErrorMessage("获取工作区状态失败");
+  }
+}
+
+async function handleBaseViewProviderState(
+  settingObj: ProjectConfigInfo,
+  state: WorkspaceState,
+  projectId: number,
+  isInit: boolean
+): Promise<void> {
+  const detailListHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiDetailList");
+  const treeListHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiTreeList");
+  const dataSchemasHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiDataSchemas");
+
+  if (!isInit && detailListHas && treeListHas && dataSchemasHas) {
+    settingObj.apiDetailList = state["AutoApiGen.ApiDetailList"]?.data;
+    settingObj.apiTreeList = state["AutoApiGen.ApiTreeList"]?.data;
+  } else {
+    const [apiTreeList, apiDetail, apiDataSchemas] = await Promise.all([
+      getApiTreeList(projectId),
+      getApiDetailList(),
+      getDataSchemas(projectId)
+    ]);
+
+    getWorkspaceStateUtil().set("AutoApiGen.ApiTreeList", {
+      updateTime: Date.now(),
+      data: apiTreeList || []
+    });
+    settingObj.apiTreeList = apiTreeList;
+
+    getWorkspaceStateUtil().set("AutoApiGen.ApiDetailList", {
+      updateTime: Date.now(),
+      data: apiDetail || []
+    });
+    settingObj.apiDetailList = apiDetail;
+
+    getWorkspaceStateUtil().set("AutoApiGen.ApiDataSchemas", {
+      updateTime: Date.now(),
+      data: apiDataSchemas || []
+    });
+    settingObj.apiDataSchemas = apiDataSchemas;
+  }
+}
+
+async function handleProjectListState(
+  settingObj: ProjectConfigInfo,
+  state: WorkspaceState,
+  isInit: boolean
+): Promise<void> {
+  if (!isInit && getWorkspaceStateUtil().hasActive("AutoApiGen.ApiProjectList")) {
+    settingObj.apiProjectList = state["AutoApiGen.ApiProjectList"]?.data;
+  } else {
+    const projectList = await getProjectList();
+    settingObj.apiProjectList = projectList;
+    getWorkspaceStateUtil().set("AutoApiGen.ApiProjectList", {
+      updateTime: Date.now(),
+      data: projectList || []
+    });
   }
 }

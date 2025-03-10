@@ -110,3 +110,15 @@ export const getDataSchemas = async (projectId: number) => {
     );
   }
 };
+
+// 获取项目的成员列表
+export const getProjectMembers = async (teamId: number) => {
+  try {
+    const res = await http.get(`project-members?locale=zh-CN&teamId=${teamId}`)
+    return res.data.data
+  } catch (error: any) {
+    FeedbackHelper.logErrorToOutput(
+      `获取项目成员失败: ${error?.message || "未知错误"}`
+    );
+  }
+};

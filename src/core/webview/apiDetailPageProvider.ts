@@ -1,12 +1,12 @@
 /*
- * @FilePath: /AutoAPIGen/src/core/webview/configPageProvider.ts
+ * @FilePath: /AutoAPIGen/src/core/webview/apiDetailPageProvider.ts
  * @Description: 
  */
 /// <reference path="../../global.d.ts" />
 import * as vscode from 'vscode'
 import { handleMessages } from '../messenger'
 
-export const generateApiDetailPage = (webview: vscode.Webview, context: vscode.ExtensionContext) => {
+export const generateApiDetailPage = (webview: vscode.Webview, context: vscode.ExtensionContext, extraInfo: any = undefined) => {
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(context.extensionUri, 'dist/compiled', 'api.es.js'))
 
 		// Do the same for the stylesheet.
@@ -29,6 +29,7 @@ export const generateApiDetailPage = (webview: vscode.Webview, context: vscode.E
 				<body>
 					<script>
 						const vscode = acquireVsCodeApi();
+						window.extraInfo = ${JSON.stringify(extraInfo)};
 					</script>
 
 					<div id="app"></div>

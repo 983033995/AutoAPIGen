@@ -81,31 +81,33 @@ export function activate(context: vscode.ExtensionContext) {
     let apiDetailPanel: vscode.WebviewPanel | undefined = undefined;
     const showApiDetailPanel = async (title: string, data: any) => {
         try {
-            const columnToShowIn = vscode.window.activeTextEditor
-                ? vscode.window.activeTextEditor.viewColumn
-                : undefined;
+            // 始终在右侧列显示（vscode.ViewColumn.Beside）
+            const targetColumn = vscode.ViewColumn.Beside;
 
-            // 更新或创建面板
-            if (!apiDetailPanel) {
+            // 复用或创建面板
+            if (apiDetailPanel) {
+                // 已存在面板时直接显示在右侧
+                apiDetailPanel.reveal(targetColumn, true); // preserveFocus 保持当前焦点
+            } else {
+                // 创建新面板时直接指定右侧列
                 apiDetailPanel = vscode.window.createWebviewPanel(
                     'ApiDetail',
                     'Api Detail',
-                    vscode.ViewColumn.Beside,
+                    targetColumn,
                     {
                         enableScripts: true,
-                        localResourceRoots: [context.extensionUri, vscode.Uri.joinPath(context.extensionUri, 'dist/compiled'), vscode.Uri.joinPath(context.extensionUri, 'dist')],
+                        localResourceRoots: [context.extensionUri, 
+                            vscode.Uri.joinPath(context.extensionUri, 'dist/compiled'), 
+                            vscode.Uri.joinPath(context.extensionUri, 'dist')],
                         retainContextWhenHidden: true
                     }
                 );
-                apiDetailPanel.reveal(vscode.ViewColumn.Beside);
+
                 // 注册面板关闭事件
                 apiDetailPanel.onDidDispose(() => {
                     apiDetailPanel = undefined;
                 }, null, context.subscriptions);
             }
-
-            // 显示面板
-            apiDetailPanel.reveal(columnToShowIn);
 
             // 更新面板内容
             const httpType = ['get', 'post', 'put', 'delete', 'patch', 'head', 'options', 'trace'];
@@ -117,8 +119,7 @@ export function activate(context: vscode.ExtensionContext) {
 
             apiDetailPanel.title = title;
             apiDetailPanel.iconPath = iconPath;
-            apiDetailPanel.webview.html = generateApiDetailPage(apiDetailPanel.webview, context);
-            apiDetailPanel.webview.postMessage(data);
+            apiDetailPanel.webview.html = generateApiDetailPage(apiDetailPanel.webview, context, data);
         } catch (error) {
             vscode.window.showErrorMessage(`打开接口详情页失败: ${error instanceof Error ? error.message : String(error)}`);
             if (apiDetailPanel) {

@@ -38,6 +38,9 @@ importers:
       axios:
         specifier: ^1.7.2
         version: 1.7.9
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.13
       eslint:
         specifier: ^8.50.0
         version: 8.57.1
