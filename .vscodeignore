@@ -9,6 +9,30 @@ vsc-extension-quickstart.md
 **/*.map
 DESC.md
 *.vsix
+.circleci/**
+.github/**
+.pnpm-store/**
+.git/**
+
+# 排除所有测试文件
+**/*.spec.*
+**/*.test.*
+**/test/**
+**/tests/**
+setupTests.ts
+
+# 排除构建和配置文件
+tsconfig.extension.json
+tsconfig.tsbuildinfo
+tailwind.config.js
+vite.config.ts
+
+# 排除文档和示例
+CHANELOG.md
+vscode.md
+
+
+# 排除特定大型依赖
 node_modules/@monaco-editor/**
 node_modules/@iconify-json/**
 node_modules/@iconify/**
@@ -19,3 +43,29 @@ node_modules/monaco-editor/**
 node_modules/vue/**
 node_modules/vue-i18n/**
 node_modules/dayjs/**
+node_modules/@vue/**
+node_modules/@types/**
+node_modules/@testing-library/**
+node_modules/@typescript-eslint/**
+node_modules/tailwindcss/**
+node_modules/vite/**
+node_modules/vitest/**
+node_modules/unplugin-**/**
+node_modules/webpack/**
+node_modules/concurrently/**
+node_modules/eslint-plugin-vue/**
+node_modules/vue-tsc/**
+node_modules/jsdom/**
+node_modules/@eslint-community/**
+node_modules/@eslint/**
+node_modules/@intlify/**
+node_modules/@volar/**
+node_modules/@webassemblyjs/**
+node_modules/@webpack-cli/**
+node_modules/eslint-**/**
+node_modules/jsonc-eslint-parser/**
+
+# 排除不必要的资源文件
+**/*.d.ts
+**/*.d.ts.map
+**/*.min.js.map

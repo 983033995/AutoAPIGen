@@ -21,7 +21,7 @@ interface VitestConfigExport extends UserConfig {
 }
 
 module.exports = defineConfig({
-	publicDir: 'src/assets/img',
+	publicDir: 'public',
 	resolve: {
 		alias: {
 			'@/': `${path.resolve(__dirname, 'src')}/`,
@@ -64,6 +64,21 @@ module.exports = defineConfig({
 			output: {
 				entryFileNames: '[name].[format].js',
 				chunkFileNames: 'chunks/[name].[format].js',
+				assetFileNames: (assetInfo) => {
+					if (assetInfo.name?.endsWith('.css')) {
+						return 'style.css';
+					}
+					return 'assets/[name]-[hash][extname]';
+				},
+				manualChunks: {
+					// 将大型依赖分离到单独的chunk中
+					'vendor': ['vue', 'vue-i18n', '@vueuse/core'],
+					'arco': ['@arco-design/web-vue'],
+					// 将编辑器相关代码单独分离
+					'editor': ['monaco-editor', '@monaco-editor/loader']
+				},
+				// 减小chunk大小
+				chunkSizeWarningLimit: 1000,
 			},
 			input: {
 				index: './src/view/index.ts',
@@ -71,7 +86,18 @@ module.exports = defineConfig({
 				api: './src/view/apiDetail/index.ts',
 			},
 		},
-		minify: 'esbuild',
+		// 使用terser进行更强的压缩
+		minify: 'terser',
+		terserOptions: {
+			compress: {
+				drop_console: true,
+				drop_debugger: true
+			}
+		},
+		// 禁用CSS代码分割，确保生成单一CSS文件
+		cssCodeSplit: false,
+		// 启用CSS压缩
+		cssMinify: true,
 		emptyOutDir: false,
 		outDir: 'dist/compiled'
 	},
