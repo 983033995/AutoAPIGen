@@ -18,7 +18,8 @@
   "main": "./dist/extension.js",
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\"",
+    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\" && npm run remove-console",
+    "remove-console": "node scripts/remove-console.js",
     "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
@@ -115,6 +116,7 @@
     "eslint-plugin-vue": "^9.30.0",
     "jsdom": "^20.0.3",
     "tailwindcss": "^3.2.4",
+    "terser": "^5.39.0",
     "typescript": "^5.6.3",
     "unplugin-auto-import": "^0.17.6",
     "unplugin-icons": "^0.14.15",

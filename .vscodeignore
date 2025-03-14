@@ -64,6 +64,7 @@ node_modules/@webassemblyjs/**
 node_modules/@webpack-cli/**
 node_modules/eslint-**/**
 node_modules/jsonc-eslint-parser/**
+node_modules/terser/**
 
 # 排除不必要的资源文件
 **/*.d.ts
