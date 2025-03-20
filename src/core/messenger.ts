@@ -61,6 +61,64 @@ const setProjectMembers = async () => {
   })
 }
 
+const getApiInfo = (key: string) => {
+  const apiTreeList =
+    getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data ||
+    [];
+  const treeNode = findSubtreePath(apiTreeList, key);
+  const configInfo =
+    getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
+      ?.configInfo || {};
+  const filePathList = getPathsAndApiDetails(
+    treeNode,
+    key,
+    configInfo.appName
+  );
+  const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
+  const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
+  const { path: relativePath, api } = filePathList[0]
+  let projectName = ''
+  if (setting.configInfo?.useProjectName) {
+    const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
+    console.log('------>projectList', projectList)
+    const projectIds = setting.configInfo.projectId || []
+    projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
+  }
+  // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
+  const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
+  const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
+  const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
+  const apiInterfacePath = vscode.Uri.file(nodePath.join(commonPath, `interface.ts`))
+  let importFunctionPath = apiFunctionPath.path
+  let importInterfacePath = apiInterfacePath.path
+  if (configInfo.alias) {
+    const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
+    importFunctionPath = replacePathAlias(apiFunctionPath.path, target)
+    importInterfacePath = replacePathAlias(apiInterfacePath.path, target)
+  } else {
+    const editor = vscode.window.activeTextEditor;
+
+    if (editor) {
+      const filePath = editor.document.uri.fsPath;
+      importFunctionPath = utils.getRelativeImportPath(filePath, apiFunctionPath.path);
+      importInterfacePath = utils.getRelativeImportPath(filePath, apiInterfacePath.path);
+    }
+  }
+  const importFunctionStr = `import { ${apiFunctionName} } from '${importFunctionPath}';`
+  
+  return {
+    apiFunctionPath,
+    apiFunctionName,
+    apiInterfacePath,
+    importFunctionPath,
+    importFunctionStr,
+    importInterfacePath,
+    interfaceQueryName: `${apiFunctionName}Query`,
+    interfaceBodyQueryName: `${apiFunctionName}Body`,
+    interfaceResName: `${apiFunctionName}Res`,
+  }
+}
+
 /**
  * 接收来自webview的消息
  *
@@ -76,6 +134,10 @@ const receiveMessages = (
       const { command, data } = message;
       console.log("---->data", data);
       const handler: WebviewMessageCollection = {
+        // 复制到剪贴板
+        copyToClipboard: () => {
+          vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', data.text || '');
+        },
         // 打开插件配置页
         openConfigPage: () => {
           const { title, configInfo } = data;
@@ -111,7 +173,10 @@ const receiveMessages = (
           }
           webview.postMessage({
             command: "setApiDetail",
-            data: apiDetail
+            data: {
+              ...apiDetail,
+              generateInfo: getApiInfo(`apiDetail.${apiDetail?.id || ''}`),
+            }
           });
         },
         // 保存配置信息
@@ -181,26 +246,7 @@ const receiveMessages = (
           );
           console.log("----->treeNode", treeNode);
           console.log("----->filePathList", filePathList);
-          const getApiInfo = () => {
-            const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-            const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
-            const { path: relativePath, api } = filePathList[0]
-            let projectName = ''
-            if (setting.configInfo?.useProjectName) {
-              const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
-              console.log('------>projectList', projectList)
-              const projectIds = setting.configInfo.projectId || []
-              projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
-            }
-            // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
-            const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
-            const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
-            const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
-            return {
-              apiFunctionPath,
-              apiFunctionName,
-            }
-          }
+
           const handler = {
             generate: async () => {
               FeedbackHelper.showProgress(
@@ -216,44 +262,19 @@ const receiveMessages = (
               );
             },
             copy: () => {
-              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', getApiInfo().apiFunctionName);
+              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', getApiInfo(key).apiFunctionName);
             },
             copyImport: () => {
-              const { apiFunctionPath, apiFunctionName } = getApiInfo()
-              let importPath = apiFunctionPath.path
-              if (configInfo.alias) {
-                const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
-                importPath = replacePathAlias(importPath, target)
-              } else {
-                const editor = vscode.window.activeTextEditor;
-
-                if (editor) {
-                  const filePath = editor.document.uri.fsPath;
-                  importPath = utils.getRelativeImportPath(filePath, apiFunctionPath.path);
-                }
-              }
-              const importStr = `import { ${apiFunctionName} } from '${importPath}';`
-              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', importStr);
+              const { importFunctionStr } = getApiInfo(key)
+              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', importFunctionStr);
             },
             jumpApiFunction: () => {
-              const { apiFunctionPath, apiFunctionName } = getApiInfo()
+              const { apiFunctionPath, apiFunctionName } = getApiInfo(key)
               revealSymbol(apiFunctionPath.fsPath, apiFunctionName)
             },
             useQuickly: () => {
-              const { apiFunctionPath: { path }, apiFunctionName } = getApiInfo()
-              let importPath = path
-              if (configInfo.alias) {
-                const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
-                importPath = replacePathAlias(importPath, target)
-              } else {
-                const editor = vscode.window.activeTextEditor;
-
-                if (editor) {
-                  const filePath = editor.document.uri.fsPath;
-                  importPath = utils.getRelativeImportPath(filePath, path);
-                }
-              }
-              addImportSymbol(apiFunctionName, importPath)
+              const { importFunctionPath, apiFunctionName } = getApiInfo(key)
+              addImportSymbol(apiFunctionName, importFunctionPath)
             }
           };
           handler[type] && (await handler[type]());
@@ -271,7 +292,10 @@ const receiveMessages = (
           vscode.commands.executeCommand(
             "AutoAPIGen.showApiDetailPanel",
             title,
-            api
+            {
+              ...api,
+              key: data.key,
+            }
           );
         }
       };
