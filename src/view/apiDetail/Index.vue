@@ -47,6 +47,11 @@ const queryParamsVueCode = ref('');
 const bodyParamsVueCode = ref('');
 const responseParamsVueCode = ref('');
 
+// 添加React响应式代码内容的响应式变量
+const queryParamsReactCode = ref('');
+const bodyParamsReactCode = ref('');
+const responseParamsReactCode = ref('');
+
 // 2. 删除所有的 watch 块 (因为它们在变量定义前过早调用)
 
 // 3. 替换为初始化函数，在 apiDetail 被设置后调用
@@ -57,14 +62,17 @@ const initVueCodeGenerators = async () => {
   setTimeout(() => {
     if (queryParams.value && queryParams.value.length > 0) {
       generateVueCodeForTab('query');
+      generateReactCodeForTab('query');
     }
 
     if (bodyParams.value && bodyParams.value.length > 0) {
       generateVueCodeForTab('body');
+      generateReactCodeForTab('body');
     }
 
     if (responseParams.value && responseParams.value.length > 0) {
       generateVueCodeForTab('response');
+      generateReactCodeForTab('response');
     }
   }, 100);
 };
@@ -260,7 +268,7 @@ const generateVueReactiveCode = (
   code += "import { reactive } from 'vue';\n\n";
 
   // 生成单一响应式对象
-  code += '// 请求参数响应式对象\n';
+  code += '// 请求参数对象\n';
   code += `const formData = reactive<${generateInfo.value[paramTypeMap[paramType]]}>({
 `;
 
@@ -313,7 +321,7 @@ const generateNestedVueReactiveCode = (
   };
 
   // 生成带类型的响应式对象
-  code += '// 包含嵌套结构的响应式对象\n';
+  code += '// 包含嵌套结构的对象\n';
   code += `const formData = reactive<${generateInfo.value[paramTypeMap[paramType]]}>(${generateObjectStructure(params)});\n`;
 
   return code;
@@ -368,6 +376,159 @@ const generateVueCodeForTab = (paramType: 'body' | 'response' | 'query') => {
   return code;
 };
 
+// 辅助函数：生成React的useState代码 - 简单结构
+const generateReactStateCode = (
+  params: RequestParam[],
+  paramType: 'body' | 'response' | 'query'
+) => {
+  if (!params || params.length === 0) return '';
+
+  let code = '';
+
+  // 生成导入语句
+  code += '// React Hooks\n';
+  code += "import { useState } from 'react';\n\n";
+
+  // 生成类型导入
+  code += `import type { ${generateInfo.value[paramTypeMap[paramType]]} } from '${generateInfo.value.importInterfacePath}';\n\n`;
+
+  // 生成初始状态对象
+  code += '// 初始状态对象\n';
+  code += `const initialState: ${generateInfo.value[paramTypeMap[paramType]]} = {\n`;
+
+  params.forEach((param) => {
+    // 根据类型设置默认值
+    const defaultValue = getDefaultValue(param.type);
+
+    // 注释放在同一行
+    code += `  ${param.name}: ${defaultValue},${param.description ? ` // ${param.description}` : ''}\n`;
+  });
+
+  code += '};\n\n';
+
+  // 生成useState Hook
+  code += '// 状态和setter\n';
+  code += `const [formData, setFormData] = useState<${generateInfo.value[paramTypeMap[paramType]]}>(initialState);\n\n`;
+
+  // 生成更新函数
+  code += '// 更新单个字段的辅助函数\n';
+  code += 'const updateField = (fieldName: string, value: any) => {\n';
+  code += '  setFormData(prev => ({\n';
+  code += '    ...prev,\n';
+  code += '    [fieldName]: value\n';
+  code += '  }));\n';
+  code += '};\n';
+
+  return code;
+};
+
+// 为嵌套结构生成更复杂的React useState代码
+const generateNestedReactStateCode = (
+  params: RequestParam[],
+  paramType: 'body' | 'response' | 'query'
+) => {
+  if (!params || params.length === 0) return '';
+
+  let code = '';
+
+  // 生成导入语句
+  code += '// React Hooks\n';
+  code += "import { useState } from 'react';\n\n";
+
+  // 生成类型导入
+  code += `import type { ${generateInfo.value[paramTypeMap[paramType]]} } from '${generateInfo.value.importInterfacePath}';\n\n`;
+
+  // 递归生成嵌套对象的字符串
+  const generateObjectStructure = (params: RequestParam[], indent = 0): string => {
+    let result = '{\n';
+    const spaces = ' '.repeat((indent + 1) * 2);
+
+    params.forEach((param) => {
+      if (param.children && param.children.length > 0) {
+        result += `${spaces}${param.name}: ${generateObjectStructure(param.children, indent + 1)},${param.description ? ` // ${param.description}` : ''}\n`;
+      } else {
+        // 根据类型设置默认值
+        const defaultValue = getDefaultValue(param.type);
+        result += `${spaces}${param.name}: ${defaultValue},${param.description ? ` // ${param.description}` : ''}\n`;
+      }
+    });
+
+    result += `${' '.repeat(indent * 2)}}`;
+    return result;
+  };
+
+  // 生成初始状态对象
+  code += '// 嵌套结构的初始状态\n';
+  code += `const initialState: ${generateInfo.value[paramTypeMap[paramType]]} = ${generateObjectStructure(params)};\n\n`;
+
+  // 生成useState Hook
+  code += '// 状态和setter\n';
+  code += `const [formData, setFormData] = useState<${generateInfo.value[paramTypeMap[paramType]]}>(initialState);\n\n`;
+
+  // 生成深度更新函数
+  code += '// 更新嵌套对象的辅助函数\n';
+  code += 'const updateNestedField = (path: string, value: any) => {\n';
+  code += '  const keys = path.split(".");\n';
+  code += '  setFormData(prev => {\n';
+  code += '    // 创建状态的深拷贝\n';
+  code += '    const newState = JSON.parse(JSON.stringify(prev));\n';
+  code += '    let current = newState;\n\n';
+  code += '    // 遍历路径\n';
+  code += '    for (let i = 0; i < keys.length - 1; i++) {\n';
+  code += '      current = current[keys[i]];\n';
+  code += '    }\n\n';
+  code += '    // 更新值\n';
+  code += '    current[keys[keys.length - 1]] = value;\n';
+  code += '    return newState;\n';
+  code += '  });\n';
+  code += '};\n';
+
+  return code;
+};
+
+// 自动生成React响应式代码的函数
+const generateReactCodeForTab = (paramType: 'body' | 'response' | 'query') => {
+  const getParamsByType = (): RequestParam[] => {
+    switch (paramType) {
+      case 'body':
+        return bodyParams.value || [];
+      case 'query':
+        return queryParams.value;
+      case 'response':
+        return responseParams.value;
+      default:
+        return [];
+    }
+  };
+
+  const params = getParamsByType();
+  // 检查是否有嵌套结构
+  const hasNestedStructure = params.some((param) => param.children && param.children.length > 0);
+
+  // 生成代码
+  let code = '';
+  if (hasNestedStructure) {
+    code = generateNestedReactStateCode(params, paramType);
+  } else {
+    code = generateReactStateCode(params, paramType);
+  }
+
+  // 更新对应的代码变量
+  switch (paramType) {
+    case 'body':
+      bodyParamsReactCode.value = code;
+      break;
+    case 'query':
+      queryParamsReactCode.value = code;
+      break;
+    case 'response':
+      responseParamsReactCode.value = code;
+      break;
+  }
+
+  return code;
+};
+
 // 处理复制操作修改为复制已生成的代码
 const handleCopyOperation = (
   key: 'copyImport' | 'generateVueRef' | 'generateReactState',
@@ -407,7 +568,26 @@ const handleCopyOperation = (
       });
     },
     generateReactState: () => {
-      // 将在另一个修改中实现
+      // 根据参数类型获取对应的已生成代码
+      let codeToUse = '';
+      switch (paramType) {
+        case 'body':
+          codeToUse = bodyParamsReactCode.value;
+          break;
+        case 'query':
+          codeToUse = queryParamsReactCode.value;
+          break;
+        case 'response':
+          codeToUse = responseParamsReactCode.value;
+          break;
+      }
+
+      vscode.postMessage({
+        command: 'copyToClipboard',
+        data: {
+          text: codeToUse
+        }
+      });
     }
   };
 
@@ -709,6 +889,34 @@ const handleTabChange = (key: string | number, paramType: 'body' | 'response' | 
                 </div>
               </div>
             </a-tab-pane>
+            <a-tab-pane key="reactCode" title="React响应式代码" v-if="queryParams.length">
+              <div class="border rounded-md overflow-hidden">
+                <div class="flex justify-between items-center px-4 py-2 bg-gray-50 border-b">
+                  <span class="text-[13px] font-medium text-[#333]">React响应式代码</span>
+                  <a-button
+                    type="text"
+                    size="mini"
+                    class="w-auto"
+                    @click="handleCopyOperation('generateReactState', 'query')"
+                  >
+                    <template #icon>
+                      <icon-copy />
+                    </template>
+                    复制代码
+                  </a-button>
+                </div>
+                <div class="editor-container" v-if="queryParamsReactCode">
+                  <Editor
+                    v-model="queryParamsReactCode"
+                    :defaultValue="queryParamsReactCode"
+                    language="typescript"
+                    :readonly="true"
+                    optionsType="typescript"
+                    :optionsProperties="emptyProperties"
+                  />
+                </div>
+              </div>
+            </a-tab-pane>
           </a-tabs>
         </a-card>
 
@@ -810,6 +1018,36 @@ const handleTabChange = (key: string | number, paramType: 'body' | 'response' | 
                 </div>
               </div>
             </a-tab-pane>
+            
+            <!-- React响应式代码 -->
+            <a-tab-pane key="reactCode" title="React响应式代码" v-if="bodyParams.length">
+              <div class="border rounded-md overflow-hidden">
+                <div class="flex justify-between items-center px-4 py-2 bg-gray-50 border-b">
+                  <span class="text-[13px] font-medium text-[#333]">React响应式代码</span>
+                  <a-button
+                    type="text"
+                    size="mini"
+                    class="w-auto"
+                    @click="handleCopyOperation('generateReactState', 'body')"
+                  >
+                    <template #icon>
+                      <icon-copy />
+                    </template>
+                    复制代码
+                  </a-button>
+                </div>
+                <div class="editor-container" v-if="bodyParamsReactCode">
+                  <Editor
+                    v-model="bodyParamsReactCode"
+                    :defaultValue="bodyParamsReactCode"
+                    language="typescript"
+                    :readonly="true"
+                    optionsType="typescript"
+                    :optionsProperties="emptyProperties"
+                  />
+                </div>
+              </div>
+            </a-tab-pane>
           </a-tabs>
         </a-card>
       </div>
@@ -892,6 +1130,36 @@ const handleTabChange = (key: string | number, paramType: 'body' | 'response' | 
                 <Editor
                   v-model="responseParamsVueCode"
                   :defaultValue="responseParamsVueCode"
+                  language="typescript"
+                  :readonly="true"
+                  optionsType="typescript"
+                  :optionsProperties="emptyProperties"
+                />
+              </div>
+            </div>
+          </a-tab-pane>
+          
+          <!-- 新增的React响应式代码标签页 -->
+          <a-tab-pane key="reactCode" title="React响应式代码" v-if="responseParams.length">
+            <div class="border rounded-md overflow-hidden">
+              <div class="flex justify-between items-center px-4 py-2 bg-gray-50 border-b">
+                <span class="text-[13px] font-medium text-[#333]">React响应式代码</span>
+                <a-button
+                  type="text"
+                  size="mini"
+                  class="w-auto"
+                  @click="handleCopyOperation('generateReactState', 'response')"
+                >
+                  <template #icon>
+                    <icon-copy />
+                  </template>
+                  复制代码
+                </a-button>
+              </div>
+              <div class="editor-container" v-if="responseParamsReactCode">
+                <Editor
+                  v-model="responseParamsReactCode"
+                  :defaultValue="responseParamsReactCode"
                   language="typescript"
                   :readonly="true"
                   optionsType="typescript"

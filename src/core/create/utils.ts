@@ -468,8 +468,8 @@ export function extractReturnData(
                 {} as Record<string, any>
             );
         }
-        if (returnDataKey.length === 1) {
-            const returnSchema = finalJsonSchema.properties[returnDataKey[0]];
+        if (returnDataKey.length === 1 && finalJsonSchema.properties && finalJsonSchema.properties[returnDataKey[0]]) {
+            const returnSchema = finalJsonSchema.properties[returnDataKey[0]] || {};
             if (returnSchema?.$ref) {
                 const refId = returnSchema.$ref.split("/").pop();
                 finalJsonSchema =
