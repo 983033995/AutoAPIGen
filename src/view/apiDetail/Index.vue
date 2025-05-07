@@ -15,7 +15,7 @@ dayjs.locale('zh-cn');
 
 // 1. 将这些变量的声明移到文件最前面，在所有 computed 之前
 // 接口详情数据
-const apiDetail = ref<ApiDetailListData & { generateInfo: any }>();
+const apiDetail = ref<ApiDetailListData & { generateInfo: any, apiDataSchemas: Record<string, any>[] }>();
 // 配置信息
 const configInfo = ref<ConfigurationInformation>();
 
@@ -273,7 +273,6 @@ const generateVueReactiveCode = (
 `;
 
   params.forEach((param) => {
-    console.log('----- 参数 -----', param);
     // 根据类型设置默认值
     const defaultValue = getDefaultValue(param.type);
 
@@ -308,7 +307,6 @@ const generateNestedVueReactiveCode = (
       if (param.children && param.children.length > 0) {
         result += `${spaces}${param.name}: ${generateObjectStructure(param.children, indent + 1)},${param.description ? ` // ${param.description}` : ''}\n`;
       } else {
-        console.log('----- 参数generateObjectStructure -----', param);
         // 根据类型设置默认值
         const defaultValue = getDefaultValue(param.type);
 
@@ -661,8 +659,16 @@ const bodyParams = computed(() => {
   if (!apiDetail.value?.requestBody || apiDetail.value.requestBody.type === 'none') return [];
 
   if (apiDetail.value?.requestBody) {
-    const { parametersTable, schemaTable } = generateTableData(apiDetail.value.requestBody);
-    console.log('----- 请求体参数 -----', parametersTable, schemaTable);
+    let requestBody = apiDetail.value.requestBody;
+
+    if (requestBody.jsonSchema.$ref) {
+      const refId = requestBody.jsonSchema.$ref.split('/').pop();
+      const refSchema = apiDetail.value.apiDataSchemas.find(item => item.id === +refId);
+      if (refSchema) {
+        requestBody.jsonSchema = refSchema.jsonSchema;
+      }
+    }
+    const { parametersTable, schemaTable } = generateTableData(requestBody);
     return schemaTable.length > 0 ? schemaTable : parametersTable;
   }
 
@@ -674,8 +680,21 @@ const responseParams = computed(() => {
   const successResponse = apiDetail.value?.responses?.find((res) => res.code === 200);
   if (successResponse) {
     try {
-      const { parametersTable, schemaTable } = generateTableData(successResponse as any);
-      console.log('----- 响应参数 -----', parametersTable, schemaTable);
+      if (successResponse.jsonSchema.$ref && successResponse.jsonSchema.$ref !== '') {
+        const refId = successResponse.jsonSchema.$ref.split('/').pop() || '';
+        const refSchema = apiDetail.value?.apiDataSchemas.find(item => item.id === +refId);
+        if (refSchema) {
+          if (refSchema.jsonSchema?.properties && refSchema.jsonSchema.properties?.data && refSchema.jsonSchema.properties.data.$ref) {
+            const dataRefId = refSchema.jsonSchema.properties.data.$ref.split('/').pop() || '';
+            const dataRefSchema = apiDetail.value?.apiDataSchemas.find(item => item.id === +dataRefId);
+            if (dataRefSchema) {
+              refSchema.jsonSchema.properties.data = dataRefSchema.jsonSchema;
+            }
+          }
+          successResponse.jsonSchema = refSchema.jsonSchema;
+        }
+      }
+      const { parametersTable, schemaTable } = generateTableData(successResponse as any)
       return schemaTable.length > 0 ? schemaTable : parametersTable;
     } catch (error) {
       console.error('生成响应参数表出错', error);
@@ -687,7 +706,6 @@ const responseParams = computed(() => {
 
 // 获取请求示例
 const requestExample = computed(() => {
-  console.log('----- 请求示例 -----', apiDetail.value?.requestBody?.jsonSchema);
   // 1. 优先从examples中获取
   if (apiDetail.value?.requestBody?.examples && apiDetail.value.requestBody.examples.length > 0) {
     try {
@@ -784,7 +802,6 @@ const descriptions = computed(() => {
 });
 
 const handleTabChange = (key: string | number, paramType: 'body' | 'response' | 'query') => {
-  console.log('----- 切换标签页 -----', key, paramType);
   generateVueCodeForTab(paramType);
 };
 </script>

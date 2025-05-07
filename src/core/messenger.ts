@@ -171,11 +171,13 @@ const receiveMessages = (
             apiDetail.creatorName = projectMembers.find(item => item.userId === apiDetail.creatorId)?.nickname || ''
             apiDetail.editorName = projectMembers.find(item => item.userId === apiDetail.editorId)?.nickname || ''
           }
+          const apiDataSchemas = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || []
           webview.postMessage({
             command: "setApiDetail",
             data: {
               ...apiDetail,
               generateInfo: getApiInfo(`apiDetail.${apiDetail?.id || ''}`),
+              apiDataSchemas
             }
           });
         },
@@ -495,7 +497,7 @@ async function handleBaseViewProviderState(
       updateTime: Date.now(),
       data: apiDataSchemas || []
     });
-    settingObj.apiDataSchemas = apiDataSchemas;
+    // settingObj.apiDataSchemas = apiDataSchemas;
   }
 }
 

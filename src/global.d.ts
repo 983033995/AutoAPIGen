@@ -238,6 +238,7 @@ interface ApiDetailResponse {
   code: number;
   message: string;
   data: ApiDetailResponseData;
+  $ref?: string;
 }
 
 interface ApiDetailParametersQuery {
