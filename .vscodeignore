@@ -28,9 +28,9 @@ tailwind.config.js
 vite.config.ts
 
 # 排除文档和示例
-CHANELOG.md
 vscode.md
-
+# 确保LICENSE和关键文档不被忽略
+# 注意: README.md, CHANGELOG.md, package.json这些文件默认不会被忽略
 
 # 排除特定大型依赖
 node_modules/@monaco-editor/**
@@ -40,6 +40,8 @@ node_modules/@vitest/**
 node_modules/@vueuse/**
 node_modules/eslint/**
 node_modules/monaco-editor/**
+# 确保@monaco-editor/loader不被排除
+!node_modules/@monaco-editor/loader/**
 node_modules/vue/**
 node_modules/vue-i18n/**
 node_modules/dayjs/**
@@ -70,3 +72,6 @@ node_modules/terser/**
 **/*.d.ts
 **/*.d.ts.map
 **/*.min.js.map
+
+# 确保离线回退的Monaco文件被包含
+!dist/monaco/**

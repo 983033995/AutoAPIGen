@@ -11,6 +11,17 @@ type VSCode = {
 
 declare const vscode: VSCode;
 
+// Monaco编辑器配置和加载方法
+interface Window {
+  monaco?: any;
+  monacoConfig?: {
+    cdnPath: string;
+    localPath?: string;
+    useLocalWhenCdnFails: boolean;
+  };
+  loadMonacoEditor?: () => Promise<any>;
+}
+
 type ApiType = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options' | 'trace'
 
 type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never

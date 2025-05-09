@@ -74,8 +74,8 @@ module.exports = defineConfig({
 					// 将大型依赖分离到单独的chunk中
 					'vendor': ['vue', 'vue-i18n', '@vueuse/core'],
 					'arco': ['@arco-design/web-vue'],
-					// 将编辑器相关代码单独分离
-					'editor': ['monaco-editor', '@monaco-editor/loader']
+					// 保留@monaco-editor/loader在打包中，但排除完整的monaco-editor
+					'monaco-loader': ['@monaco-editor/loader']
 				},
 				// 减小chunk大小
 				chunkSizeWarningLimit: 1000,
@@ -85,6 +85,8 @@ module.exports = defineConfig({
 				config: './src/view/config/index.ts',
 				api: './src/view/apiDetail/index.ts',
 			},
+			// 只排除monaco-editor，不排除@monaco-editor/loader
+			external: ['monaco-editor']
 		},
 		// 使用terser进行更强的压缩
 		minify: 'terser',

@@ -2,7 +2,7 @@
   "name": "AutoAPIGen",
   "displayName": "AutoAPIGen",
   "description": "Automatically generate API functions to improve development efficiency. Supports TypeScript typing, processing queries and path parameters, and integrates with Axios for seamless API requests. Ideal for developers to save time and avoid duplicate API boilerplate code.",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "license": "MIT",
   "publisher": "script",
   "engines": {
@@ -17,9 +17,11 @@
   },
   "main": "./dist/extension.js",
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run compile && npm run optimize-monaco && npm run clean-chunks",
     "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\" && npm run remove-console",
     "remove-console": "node scripts/remove-console.js",
+    "optimize-monaco": "node scripts/optimize-monaco.js",
+    "clean-chunks": "node scripts/clean-chunks.js",
     "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
