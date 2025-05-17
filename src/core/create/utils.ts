@@ -545,7 +545,7 @@ export function buildApiFunctionBody(
         : haveReqBody
             ? "data, "
             : `{}, `;
-    return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}axiosConfig);`;
+    return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}{...axiosConfig, projectId: ${apiDetailItem.projectId || 0}});`;
 }
 
 // 辅助函数：构建函数主体

@@ -14,6 +14,15 @@ const formRef = ref();
 // 配置信息
 const configInfo = ref<ConfigurationInformation>();
 
+// 定义KeysType类型
+type KeysType = keyof typeof defaultModel;
+
+// 定义AppCollections类型
+type AppCollections = string;
+
+// 定义apiModelType类型
+type apiModelType = string;
+
 const defaultModel = {
   appName: 'apifox' as AppCollections,
   Authorization: '',
@@ -31,8 +40,12 @@ const defaultModel = {
   alias: ''
 };
 
-// 表单配置信息
-const formConfig = ref<Omit<ConfigFromModel, 'path'> & { path: string[] }>(defaultModel);
+// 表单配置信息，允许字段为any类型
+type ConfigFormType = {
+  [K in KeysType]: any;
+};
+
+const formConfig = ref<ConfigFormType>(defaultModel);
 
 const pathDefaultValue = ref<string[][]>([]);
 
@@ -106,7 +119,7 @@ window.addEventListener('message', (event) => {
             formConfig.value.projectId = initialConfiguration.projectId as unknown as number[];
           } else {
             if (key !== 'path') {
-              formConfig.value[key] = initialConfiguration[key] as string | number | AppCollections;
+              formConfig.value[key] = initialConfiguration[key] as unknown as any;
             }
           }
         }
@@ -144,6 +157,17 @@ watch(
 
 const customModel = computed(() => {
   return formConfig.value.model === 'custom';
+});
+
+// 计算属性用于Editor组件绑定
+const customReturnValue = computed({
+  get: () => formConfig.value.customReturn || '',
+  set: (val) => { formConfig.value.customReturn = val; }
+});
+
+const customExtraFunctionValue = computed({
+  get: () => formConfig.value.customExtraFunction || '',
+  set: (val) => { formConfig.value.customExtraFunction = val; }
 });
 
 const handleSubmit = ({
@@ -205,9 +229,11 @@ const optionsType = `
           /** 将接口定义的类型转换为ts类型 */
           buildParameters: (
             params: ApiDetailParametersQuery[]
-          )
+          ) => string;
           /** 日志函数 */
           log: (message: string) => void;
+          /** 项目ID */
+          projectId: number | string;
         }
   
         declare const options: CustomFunctionOptions;
@@ -225,7 +251,8 @@ const optionsProperties = [
   { label: 'extraFunctionName', documentation: '扩展函数名称(use 开头)' },
   { label: 'apiPath', documentation: 'API 路径' },
   { label: 'buildParameters', documentation: '将接口定义的类型转换为ts类型' },
-  { label: 'log', documentation: '日志函数' }
+  { label: 'log', documentation: '日志函数' },
+  { label: 'projectId', documentation: '项目ID' }
 ];
 const defaultValue = '// 在此输入自定义内容';
 </script>
@@ -344,7 +371,7 @@ const defaultValue = '// 在此输入自定义内容';
         </a-form-item>
         <a-form-item
           field="axiosReturnKey"
-          tooltip="响应拦截中最终返回的属性，如有多个使用英文‘,’分割"
+          tooltip="响应拦截中最终返回的属性，如有多个使用英文','分割"
           :label="t('configInfoFrom.axiosReturnKey')"
         >
           <a-input v-model="formConfig.axiosReturnKey" />
@@ -375,36 +402,18 @@ const defaultValue = '// 在此输入自定义内容';
             />
           </a-form-item>
           <a-form-item field="customReturn" :label="t('configInfoFrom.customReturn')">
-            <!-- <a-textarea
-              v-model="formConfig.customReturn"
-              placeholder="自定义接口返回内容，支持模板变量，如：{{ option }}"
-              :auto-size="{
-                minRows: 3,
-                maxRows: 8,
-              }"
-            /> -->
             <Editor
               key="customReturn"
-              v-model="formConfig.customReturn"
+              v-model:modelValue="customReturnValue"
               :optionsType="optionsType"
               :optionsProperties="optionsProperties"
               :defaultValue="defaultValue"
             />
           </a-form-item>
           <a-form-item field="customExtraFunction" :label="t('configInfoFrom.customExtraFunction')">
-            <!-- <a-mention
-              v-model="formConfig.customExtraFunction"
-              :data="['Bytedance', 'Bytedesign', 'Bytenumner']"
-              type="textarea"
-              placeholder="enter something"
-              :auto-size="{
-                minRows: 3
-              }"
-            /> -->
-
             <Editor
               key="customExtraFunction"
-              v-model="formConfig.customExtraFunction"
+              v-model:modelValue="customExtraFunctionValue"
               :optionsType="optionsType"
               :optionsProperties="optionsProperties"
               :defaultValue="defaultValue"

@@ -147,7 +147,7 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
         const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`.trim()
         const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${utils.convertPathToPascalCase(item.path)}}`
         const apiDetailItem: Partial<ApiDetailListData> = apiDetailList.find(detail => detail.id === item.id) || {}
-        const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote)
+        const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote, setting.configInfo.projectId?.pop() || '')
         return {
           ...item,
           apiFunctionName,
@@ -198,7 +198,8 @@ function buildMethodTemplate(
   useApiFunctionName: string,
   apiModel: apiModelType,
   apiDetailItem: Partial<ApiDetailListData>,
-  axiosQuote: string
+  axiosQuote: string,
+  projectId: string | number
 ): { fun: string, interFace: string } {
   try {
   // 提取参数信息
@@ -252,7 +253,8 @@ function buildMethodTemplate(
         extraFunctionName: `use${firstToLocaleUpperCase(apiFunctionName)}`,
         apiPath,
         buildParameters: utils.buildParameters,
-        log: FeedbackHelper.logErrorToOutput.bind(FeedbackHelper)
+        log: FeedbackHelper.logErrorToOutput.bind(FeedbackHelper),
+        projectId: projectId
       }
       const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`
       const customFunction = utils.customFunctionReturn(options, description, defaultFunction, apiFunctionName) || ''
