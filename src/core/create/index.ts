@@ -147,7 +147,8 @@ export async function generateFile(filePathList: PathApiDetail[], type: treeItem
         const apiFunctionName = `${item.method}${utils.convertPathToPascalCase(item.path)}`.trim()
         const useApiFunctionName = `use${item.method.charAt(0).toUpperCase() + item.method.slice(1)}${utils.convertPathToPascalCase(item.path)}}`
         const apiDetailItem: Partial<ApiDetailListData> = apiDetailList.find(detail => detail.id === item.id) || {}
-        const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote, setting.configInfo.projectId?.pop() || '')
+        const projectId = setting.configInfo.projectId ? setting.configInfo.projectId[setting.configInfo.projectId.length - 1] : '';
+        const { fun: apiFunctionContext, interFace: apiInterfaceContext } = buildMethodTemplate(apiFunctionName, useApiFunctionName, apiModel, apiDetailItem, axiosQuote, projectId)
         return {
           ...item,
           apiFunctionName,

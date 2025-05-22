@@ -2,7 +2,7 @@
   "name": "AutoAPIGen",
   "displayName": "AutoAPIGen",
   "description": "Automatically generate API functions to improve development efficiency. Supports TypeScript typing, processing queries and path parameters, and integrates with Axios for seamless API requests. Ideal for developers to save time and avoid duplicate API boilerplate code.",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "license": "MIT",
   "publisher": "script",
   "engines": {
