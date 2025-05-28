@@ -37,7 +37,8 @@ const defaultModel = {
   axiosPath: '',
   axiosReturnKey: '',
   useProjectName: false,
-  alias: ''
+  alias: '',
+  useProjectId: false
 };
 
 // 表单配置信息，允许字段为any类型
@@ -352,6 +353,15 @@ const defaultValue = '// 在此输入自定义内容';
         >
           <div class="w-100px">
             <a-switch type="round" v-model="formConfig.useProjectName" />
+          </div>
+        </a-form-item>
+        <a-form-item
+          field="useProjectId"
+          tooltip="是否将项目ID生成到AXIOS的请求参数中，如：{ ...axiosConfig, projectId: 12345 }"
+          label="是否使用项目ID"
+        >
+          <div class="w-100px">
+            <a-switch type="round" v-model="formConfig.useProjectId" />
           </div>
         </a-form-item>
         <a-form-item

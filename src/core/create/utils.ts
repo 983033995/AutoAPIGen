@@ -545,7 +545,9 @@ export function buildApiFunctionBody(
         : haveReqBody
             ? "data, "
             : `{}, `;
-    return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}{...axiosConfig, projectId: ${apiDetailItem.projectId || 0}});`;
+    const useProjectId = getWorkspaceStateUtil().get("AutoApiGen.setting")?.data.configInfo?.useProjectId || false;
+    const axiosConfig = useProjectId ? `{...axiosConfig, projectId: ${apiDetailItem.projectId || 0}}` : `axiosConfig`;
+    return `return ${axiosAlias}.${apiMethod}(${url}, ${bodyParams}${axiosConfig});`;
 }
 
 // 辅助函数：构建函数主体
