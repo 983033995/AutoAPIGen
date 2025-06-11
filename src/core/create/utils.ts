@@ -163,7 +163,7 @@ export function buildInterfaceQuery(
     if (!queryParams.length) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口请求Query参数`
     try {
-        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export interface ${apiFunctionName}Query {${'\n'}    ${queryParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}     [key: string]: any${'\n'}}${'\n'}`;
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export interface ${apiFunctionName}Query {${'\n'}    ${queryParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
     } catch (error: any) {
         FeedbackHelper.logErrorToOutput(`${apiDetailItem.name}--${apiDetailItem?.path || ''}构建接口请求Query参数失败：${error.message}`);
         return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'} */${'\n'}export type ${apiFunctionName}Query = any${'\n'}`;
@@ -190,7 +190,7 @@ export function buildParametersSchema(
     interfaceName: string
 ): string {
     if (!configObj) {
-        return `export interface ${interfaceName} {${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
+        return `export interface ${interfaceName} {${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
     } else if (configObj.jsonSchema) {
         return transformSchema(configObj.jsonSchema, interfaceName);
     } else {
@@ -201,7 +201,7 @@ export function buildParametersSchema(
                 `${cur.description || cur.example ? `/** ${cur.description.replace(/\n/g, " ")}${cur.example ? `  example: ${cur.example}` : ""} */` : ""}${'\n'}    ${nameFormatter(cur.name)}${cur.required ? "" : "?"}: ${buildParameters(cur)}${'\n'}`
             );
         }, "")
-        return `export interface ${interfaceName} {${'\n'}    ${bodyParametersReturnString}    [key: string]: any${'\n'}}${'\n'}`;
+        return `export interface ${interfaceName} {${'\n'}    ${bodyParametersReturnString}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
     }
 }
 export function transformSchema(
@@ -268,20 +268,23 @@ export function transformSchema(
         }
     };
 
-    const buildArrayReturn = () => {
-        return buildPropertyType(jsonSchema, "item", interfaceName);
-        // return `${interfaceName}Item[]`;
-    };
-    res =
-        jsonSchema.type === "null" ? `export type ${interfaceName} = null` :
-            jsonSchema.type === "object" || jsonSchema.$ref
-                ? `export interface ${interfaceName} {
+    // 根据不同的schema类型生成对应的TypeScript类型定义
+    if (jsonSchema.type === "null") {
+        // 处理null类型
+        res = `export type ${interfaceName} = null`;
+    } else if (jsonSchema.type === "object" || jsonSchema.$ref) {
+        // 处理对象类型或引用类型，生成interface
+        res = `export interface ${interfaceName} {
         ${output(jsonSchema, interfaceName)}
-        [key: string]: any
+        ${buildTypeExtension()}
       }
-    `
-                : `export type ${interfaceName} = ${buildArrayReturn()}
     `;
+    } else {
+        // 处理其他类型，生成type alias
+        const baseType = buildPropertyType(jsonSchema, "item", interfaceName);
+        res = `export type ${interfaceName} = ${jsonSchema.type === "array" ? baseType + "[]" : baseType}
+    `;
+    }
 
     function buildPropertyType(
         property: Record<string, any>,
@@ -367,7 +370,7 @@ export function transformSchema(
         let childrenResStr =
             type === "string"
                 ? `${description}${'\n'}export type ${childrenInterfaceName} = ${buildParameters(noRef as unknown as ApiDetailParametersQuery)}${'\n'}`
-                : `${description}${'\n'}export interface ${childrenInterfaceName} {${'\n'}    ${output(noRef, childrenFaceName)}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
+                : `${description}${'\n'}export interface ${childrenInterfaceName} {${'\n'}    ${output(noRef, childrenFaceName)}${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
         childrenRes += childrenResStr;
 
         return childrenInterface;
@@ -390,7 +393,7 @@ export function buildInterfacePathQuery(
     if (pathParams.length <= 1) return "";
     const description = `${apiDetailItem.tags?.join("/")}/${apiDetailItem.name}--接口路径参数`
     try {
-        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export interface ${apiFunctionName}PathQuery {${'\n'}    ${pathParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    [key: string]: any${'\n'}}${'\n'}`;
+        return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export interface ${apiFunctionName}PathQuery {${'\n'}    ${pathParams.map((cur) => formatParameter(cur)).join("\n")}${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
     } catch (error) {
         return `${'\n'}/**${'\n'} * @description ${description.replace(/\n/g, '；')}${'\n'} * @url ${apiDetailItem.method?.toLocaleUpperCase()} ${apiDetailItem.path}${'\n'}*/${'\n'}export type ${apiFunctionName}PathQuery = any${'\n'}`;
     }
@@ -1061,4 +1064,13 @@ export function getRelativeImportPath(filePathA: string, filePathB: string): str
 
     // 移除文件扩展名（仅限 .ts 或 .js 文件，其他扩展名按需调整）
     return relativePath.replace(/\.[tj]s$/, '');
+}
+
+/**
+ * 生成类型拓展
+ * @return 根据配置是否开启类型拓展，返回："[key: string]: any" || ""
+ */
+export function buildTypeExtension(): string {
+    const useTypeExtension = getWorkspaceStateUtil().get("AutoApiGen.setting")?.data.configInfo?.useTypeExtension || false;
+    return useTypeExtension ? "[key: string]: any" : "";
 }

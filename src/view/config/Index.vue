@@ -38,7 +38,8 @@ const defaultModel = {
   axiosReturnKey: '',
   useProjectName: false,
   alias: '',
-  useProjectId: false
+  useProjectId: false,
+  useTypeExtension: false
 };
 
 // 表单配置信息，允许字段为any类型
@@ -362,6 +363,15 @@ const defaultValue = '// 在此输入自定义内容';
         >
           <div class="w-100px">
             <a-switch type="round" v-model="formConfig.useProjectId" />
+          </div>
+        </a-form-item>
+        <a-form-item
+          field="useTypeExtension"
+          tooltip="是否启用类型拓展，会在接口定义中添加：[key: string]: any"
+          label="启用类型拓展"
+        >
+          <div class="w-100px">
+            <a-switch type="round" v-model="formConfig.useTypeExtension" />
           </div>
         </a-form-item>
         <a-form-item
