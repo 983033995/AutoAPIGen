@@ -97,6 +97,8 @@ const setupMonaco = async () => {
           log: (message: string) => void;
           /** 项目ID */
           projectId: number | string;
+          /** 是否使用项目ID */
+          useProjectId: boolean;
         }
   
         declare const options: CustomFunctionOptions;
@@ -109,8 +111,7 @@ const setupMonaco = async () => {
 
       // 扩展属性列表，添加projectId
       const extendedProperties = [
-        ...props.optionsProperties,
-        { label: 'projectId', documentation: '项目ID' }
+        ...props.optionsProperties
       ];
 
       // 添加代码补全项，带上属性的含义并调整顺序

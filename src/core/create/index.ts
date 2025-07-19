@@ -241,6 +241,7 @@ function buildMethodTemplate(
       }
     },
     custom: () => {
+      const useProjectId = getWorkspaceStateUtil().get("AutoApiGen.setting")?.data.configInfo?.useProjectId || false;
       const options = {
         pathParams,
         pathParamsType: `${apiFunctionName}PathQuery`,
@@ -255,6 +256,7 @@ function buildMethodTemplate(
         apiPath,
         buildParameters: utils.buildParameters,
         log: FeedbackHelper.logErrorToOutput.bind(FeedbackHelper),
+        useProjectId,
         projectId: projectId
       }
       const defaultFunction = `${apiFunctionSignature}\n  ${apiFunctionBody}\n}`

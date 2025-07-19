@@ -236,6 +236,8 @@ const optionsType = `
           log: (message: string) => void;
           /** 项目ID */
           projectId: number | string;
+          /** 是否使用项目ID */
+          useProjectId: boolean;
         }
   
         declare const options: CustomFunctionOptions;
@@ -254,7 +256,8 @@ const optionsProperties = [
   { label: 'apiPath', documentation: 'API 路径' },
   { label: 'buildParameters', documentation: '将接口定义的类型转换为ts类型' },
   { label: 'log', documentation: '日志函数' },
-  { label: 'projectId', documentation: '项目ID' }
+  { label: 'projectId', documentation: '项目ID' },
+  { label: 'useProjectId', documentation: '是否使用项目ID' }
 ];
 const defaultValue = '// 在此输入自定义内容';
 </script>
