@@ -1,5 +1,5 @@
 <!--
- * @FilePath: /vscode插件/AutoAPIGen/src/view/App.vue
+ * @FilePath: /AutoAPIGen/src/view/App.vue
  * @Description: 
 -->
 
@@ -23,9 +23,9 @@ const checkConfigRes = computed(() => {
       message: t('tip')
     };
   }
-  const { appName, Authorization } = configInfo.value.configInfo || {};
+  const { appName, Authorization, Cookie } = configInfo.value.configInfo || {};
 
-  if (!appName || !Authorization) {
+  if (!appName || (!Authorization && !Cookie)) {
     return {
       success: false,
       type: 1,
@@ -365,7 +365,7 @@ const changeProjectId = (value: number[]) => {
                 path-mode
                 :field-names="{ label: 'name', value: 'id' }"
                 :expand-child="true"
-                @change="(value) => changeProjectId(value as number[])"
+                @change="(value: number[]) => changeProjectId(value)"
               />
             </template>
           </a-trigger>

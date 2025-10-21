@@ -23,9 +23,36 @@ export const initHttp = async (
   appName: AppCollections,
   data: Record<string, any>
 ) => {
+  let configData = { ...data };
+  
+  // 如果使用Cookie方式且有projectId，先获取分支信息
+  if (data.Cookie && data.projectId) {
+    try {
+      // 临时创建一个http实例来获取分支信息
+      const tempHttp = await api({
+        appName,
+        ...data,
+      });
+      
+      // 获取分支信息
+      const branchRes = await tempHttp.get(`/projects/${data.projectId}/sprint-branches?locale=zh-CN`);
+      const branches = branchRes.data.data;
+      
+      // 找到main分支或第一个分支
+      const mainBranch = branches.find((branch: any) => branch.name === 'main') || branches[0];
+      if (mainBranch) {
+        configData.branchId = mainBranch.id.toString();
+      }
+    } catch (error: any) {
+      FeedbackHelper.logErrorToOutput(
+        `获取分支信息失败: ${error?.message || "未知错误"}`
+      );
+    }
+  }
+  
   http = await api({
     appName,
-    ...data,
+    ...configData,
   });
 };
 
@@ -120,5 +147,18 @@ export const getProjectMembers = async (teamId: number) => {
     FeedbackHelper.logErrorToOutput(
       `获取项目成员失败: ${error?.message || "未知错误"}`
     );
+  }
+};
+
+// 获取项目分支信息
+export const getProjectBranches = async (projectId: number) => {
+  try {
+    const res = await http.get(`/projects/${projectId}/sprint-branches?locale=zh-CN`)
+    return res.data.data
+  } catch (error: any) {
+    FeedbackHelper.logErrorToOutput(
+      `获取项目分支信息失败: ${error?.message || "未知错误"}`
+    );
+    return []
   }
 };

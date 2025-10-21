@@ -53,6 +53,7 @@ type apiModelType = 'vueUse' | 'axios' | 'VueHookPlus' | 'wx' | 'custom'
 interface ConfigFromModel {
   appName: AppCollections
   Authorization: string
+  Cookie: string
   path: string
   projectId: number[]
   model: apiModelType
@@ -86,6 +87,7 @@ type DirectoryItem = {
 
 type GetModelOptionsParams = {
   appName: AppCollections,
+  branchId?: string,
   [key: string]: any
 }
 

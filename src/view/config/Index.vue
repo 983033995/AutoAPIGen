@@ -26,6 +26,7 @@ type apiModelType = string;
 const defaultModel = {
   appName: 'apifox' as AppCollections,
   Authorization: '',
+  Cookie: '',
   path: [],
   projectId: [],
   head: '',
@@ -51,9 +52,34 @@ const formConfig = ref<ConfigFormType>(defaultModel);
 
 const pathDefaultValue = ref<string[][]>([]);
 
+// 动态计算必填状态
+const isAuthorizationRequired = computed(() => !formConfig.value.Cookie);
+const isCookieRequired = computed(() => !formConfig.value.Authorization);
+
 const formRules = {
   appName: [{ required: true, message: `请选择${t('configInfoFrom.appLabel')}` }],
-  Authorization: [{ required: true, message: `请输入${t('configInfoFrom.Authorization')}` }],
+  Authorization: [
+    { 
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (!value && !formConfig.value.Cookie) {
+          callback(`请输入${t('configInfoFrom.Authorization')}或${t('configInfoFrom.Cookie')}`);
+        } else {
+          callback();
+        }
+      }
+    }
+  ],
+  Cookie: [
+    { 
+      validator: (value: string, callback: (error?: string) => void) => {
+        if (!value && !formConfig.value.Authorization) {
+          callback(`请输入${t('configInfoFrom.Authorization')}或${t('configInfoFrom.Cookie')}`);
+        } else {
+          callback();
+        }
+      }
+    }
+  ],
   path: [{ required: true, message: `请选择${t('configInfoFrom.path')}` }],
   projectId: [{ required: true, message: `请选择${t('configInfoFrom.projectId')}` }],
   model: [{ required: true, message: `请选择${t('configInfoFrom.model')}` }]
@@ -88,15 +114,19 @@ const projectLoading = ref<boolean>(false);
 // 获取项目列表
 const getProjectList = () => {
   projectLoading.value = true;
-  if (!formConfig.value.Authorization) {
+  if (!formConfig.value.Authorization && !formConfig.value.Cookie) {
     formRef.value && formRef.value?.validateField('Authorization');
+    formRef.value && formRef.value?.validateField('Cookie');
+    projectLoading.value = false;
     return;
   }
   console.log('----->formConfig.value.Authorization', formConfig.value.Authorization);
+  console.log('----->formConfig.value.Cookie', formConfig.value.Cookie);
   vscode.postMessage({
     command: 'getProjectList',
     data: {
       Authorization: formConfig.value.Authorization,
+      Cookie: formConfig.value.Cookie,
       appName: formConfig.value?.appName
     }
   });
@@ -301,10 +331,26 @@ const defaultValue = '// 在此输入自定义内容';
             ></a-option>
           </a-select>
         </a-form-item>
-        <a-form-item field="Authorization" :label="t('configInfoFrom.Authorization')">
+        <a-form-item 
+          field="Authorization" 
+          :label="t('configInfoFrom.Authorization')"
+          :required="isAuthorizationRequired"
+          tooltip="Bearer token或API密钥，用于API身份验证"
+        >
           <a-input
             v-model="formConfig.Authorization"
             placeholder="please enter your Authorization..."
+          />
+        </a-form-item>
+        <a-form-item 
+          field="Cookie" 
+          :label="t('configInfoFrom.Cookie')"
+          :required="isCookieRequired"
+          tooltip="获取方式：1. 打开浏览器开发者工具(F12) 2. 访问对应的API平台网站并登录 3. 在Network标签页中找到任意API请求 4. 复制请求头中的完整Cookie值 5. 粘贴到此输入框中"
+        >
+          <a-input
+            v-model="formConfig.Cookie"
+            placeholder="please enter your Cookie..."
           />
         </a-form-item>
         <a-form-item field="path" :label="t('configInfoFrom.path')">

@@ -11,6 +11,7 @@
   "configInfoFrom": {
     "appLabel": "应用名",
     "Authorization": "Authorization",
+    "Cookie": "Cookie",
     "path": "生成路径",
     "projectId": "项目ID",
     "head": "依赖项",
