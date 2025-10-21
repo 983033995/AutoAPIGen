@@ -420,39 +420,140 @@ export function extractReturnData(
         responses?.find((res) => +res.code === 200) || undefined;
     const apiDataSchemas: ApiDataSchemasItem[] =
         getWorkspaceStateUtil().get("AutoApiGen.ApiDataSchemas")?.data || [];
+    
+    // 定义 resolveSchemaRef 函数
+    function resolveSchemaRef(
+        jsonSchema: Record<string, any>,
+        apiDataSchemas: ApiDataSchemasItem[],
+        depth = 0,
+        maxDepth = 3
+    ): Record<string, any> {
+        // 检查最大递归深度
+        if (depth >= maxDepth) {
+            console.warn(`达到最大递归深度: ${maxDepth}`);
+            return jsonSchema; // 返回当前 schema 而不再深入
+        }
+
+        // 处理直接的 $ref 引用（保持原有逻辑）
+        if (jsonSchema?.$ref) {
+            const refId = jsonSchema.$ref.split("/").pop();
+            const schema =
+                apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
+
+            // 如果引用的 schema 也有 $ref，递归查找
+            if ((schema as { $ref?: string })?.$ref) {
+                return resolveSchemaRef(schema, apiDataSchemas, depth + 1, maxDepth);
+            }
+
+            return schema; // 找到的 schema 没有 $ref，返回该 schema
+        }
+
+        // 处理 x-apifox-refs 结构
+        if (jsonSchema?.["x-apifox-refs"]) {
+            const apifoxRefs = jsonSchema["x-apifox-refs"] as Record<string, any>;
+            const apifoxOrders = jsonSchema["x-apifox-orders"] || [];
+            const resolvedSchema = { ...jsonSchema };
+            
+            // 初始化 properties 如果不存在
+            if (!resolvedSchema.properties) {
+                resolvedSchema.properties = {};
+            }
+
+            // 遍历 x-apifox-refs 中的每个引用
+            for (const [refKey, refConfig] of Object.entries(apifoxRefs)) {
+                if (refConfig && typeof refConfig === 'object' && (refConfig as any).$ref) {
+                    // 解析引用
+                    const refId = (refConfig as any).$ref.split("/").pop();
+                    let referencedSchema = apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
+                    
+                    // 递归解析引用的 schema
+                    if ((referencedSchema as any).$ref || (referencedSchema as any)["x-apifox-refs"]) {
+                        referencedSchema = resolveSchemaRef(referencedSchema, apiDataSchemas, depth + 1, maxDepth);
+                    }
+
+                    // 应用 x-apifox-overrides 覆盖配置
+                    if ((refConfig as any)["x-apifox-overrides"] && (referencedSchema as any).properties) {
+                        const overrides = (refConfig as any)["x-apifox-overrides"];
+                        referencedSchema = {
+                            ...referencedSchema,
+                            properties: {
+                                ...(referencedSchema as any).properties,
+                                ...Object.keys(overrides).reduce((acc, key) => {
+                                    if ((referencedSchema as any).properties[key]) {
+                                        acc[key] = {
+                                            ...(referencedSchema as any).properties[key],
+                                            ...overrides[key]
+                                        };
+                                    } else {
+                                        acc[key] = overrides[key];
+                                    }
+                                    return acc;
+                                }, {} as Record<string, any>)
+                            }
+                        };
+                    }
+
+                    // 将解析后的 schema 的 properties 合并到当前 schema
+                    if ((referencedSchema as any).properties) {
+                        Object.assign(resolvedSchema.properties, (referencedSchema as any).properties);
+                    }
+                }
+            }
+
+            // 根据 x-apifox-orders 重新排序 properties
+            if (apifoxOrders.length > 0) {
+                const orderedProperties: Record<string, any> = {};
+                
+                // 首先按照 orders 的顺序添加属性
+                apifoxOrders.forEach((key: string) => {
+                    if (resolvedSchema.properties[key]) {
+                        orderedProperties[key] = resolvedSchema.properties[key];
+                    }
+                });
+                
+                // 然后添加不在 orders 中的其他属性
+                Object.keys(resolvedSchema.properties).forEach(key => {
+                    if (!apifoxOrders.includes(key)) {
+                        orderedProperties[key] = resolvedSchema.properties[key];
+                    }
+                });
+                
+                resolvedSchema.properties = orderedProperties;
+            }
+
+            // 清理 x-apifox-refs 和 x-apifox-orders，因为已经解析完成
+            delete resolvedSchema["x-apifox-refs"];
+            delete resolvedSchema["x-apifox-orders"];
+
+            return resolvedSchema;
+        }
+
+        // 递归处理 properties 中的引用
+        if (jsonSchema.properties) {
+            const resolvedSchema = { ...jsonSchema };
+            resolvedSchema.properties = {};
+            
+            for (const [key, value] of Object.entries(jsonSchema.properties)) {
+                if (value && typeof value === 'object' && ((value as any).$ref || (value as any)["x-apifox-refs"])) {
+                    resolvedSchema.properties[key] = resolveSchemaRef(value as Record<string, any>, apiDataSchemas, depth + 1, maxDepth);
+                } else {
+                    resolvedSchema.properties[key] = value;
+                }
+            }
+            
+            return resolvedSchema;
+        }
+
+        return jsonSchema; // 没有引用，直接返回原始 schema
+    }
+    
     let finalJsonSchema: Record<string, any> = defaultResponses?.jsonSchema || {};
     if (defaultResponses && defaultResponses.jsonSchema) {
         const jsonSchema = defaultResponses.jsonSchema as unknown as Record<
             string,
             any
         >;
-        function resolveSchemaRef(
-            jsonSchema: Record<string, any>,
-            apiDataSchemas: ApiDataSchemasItem[],
-            depth = 0,
-            maxDepth = 3
-        ): Record<string, any> {
-            // 检查最大递归深度
-            if (depth >= maxDepth) {
-                console.warn(`达到最大递归深度: ${maxDepth}`);
-                return jsonSchema; // 返回当前 schema 而不再深入
-            }
-
-            if (jsonSchema?.$ref) {
-                const refId = jsonSchema.$ref.split("/").pop();
-                const schema =
-                    apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
-
-                // 如果引用的 schema 也有 $ref，递归查找
-                if ((schema as { $ref?: string })?.$ref) {
-                    return resolveSchemaRef(schema, apiDataSchemas, depth + 1, maxDepth);
-                }
-
-                return schema; // 找到的 schema 没有 $ref，返回该 schema
-            }
-
-            return jsonSchema; // 没有 $ref，直接返回原始 schema
-        }
+        
         finalJsonSchema = resolveSchemaRef(jsonSchema, apiDataSchemas);
     }
     if (returnDataKey.length) {
@@ -473,10 +574,9 @@ export function extractReturnData(
         }
         if (returnDataKey.length === 1 && finalJsonSchema.properties && finalJsonSchema.properties[returnDataKey[0]]) {
             const returnSchema = finalJsonSchema.properties[returnDataKey[0]] || {};
-            if (returnSchema?.$ref) {
-                const refId = returnSchema.$ref.split("/").pop();
-                finalJsonSchema =
-                    apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
+            // 使用 resolveSchemaRef 函数来正确处理所有类型的引用，包括 $ref 和 x-apifox-refs
+            if (returnSchema?.$ref || returnSchema?.["x-apifox-refs"]) {
+                finalJsonSchema = resolveSchemaRef(returnSchema, apiDataSchemas);
             } else {
                 finalJsonSchema = returnSchema;
             }

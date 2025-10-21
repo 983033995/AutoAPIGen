@@ -44,12 +44,22 @@ const webviewCollection: Record<
 };
 
 const setProjectMembers = async () => {
-  const projectIds = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data.configInfo.projectId
+  const settingData = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data
+  const configInfo = settingData?.configInfo
+  const projectIds = configInfo?.projectId
   const UserProjects = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
   const project = UserProjects.find((item: Record<string, any>) => item.id === projectIds[projectIds.length - 1])
   let projectMembers: ProjectMember[] | [] = []
-  if (project) {
+  if (project && configInfo) {
     try {
+      // 重新初始化 HTTP 实例以使用当前的授权配置
+      // 确保 projectId 是当前项目的 ID
+      const currentProjectId = projectIds[projectIds.length - 1]
+      await initHttp(configInfo.appName, {
+        projectId: currentProjectId,
+        Authorization: configInfo.Authorization,
+        Cookie: configInfo.Cookie,
+      });
       projectMembers = await getProjectMembers(project.teamId)
     } catch (error) {
       console.error('获取项目成员失败', error)
@@ -219,6 +229,7 @@ const receiveMessages = (
           await initHttp(data.appName, {
             projectId: data?.projectId || "",
             Authorization: data?.Authorization,
+            Cookie: data?.Cookie,
           });
           const projectList = await getProjectList();
           getWorkspaceStateUtil().set("AutoApiGen.ApiProjectList", {
@@ -401,7 +412,7 @@ async function getWorkspaceState(
       settingObj = settingFile ? JSON.parse(settingFile) : {};
 
       const isValidConfig = (
-        settingObj.Authorization &&
+        (settingObj.Authorization || settingObj.Cookie) &&
         settingObj.appName &&
         Array.isArray(settingObj?.projectId) &&
         (settingObj?.projectId?.length ?? 0) > 0
@@ -415,7 +426,8 @@ async function getWorkspaceState(
         }
         await initHttp(appName, {
           projectId,
-          Authorization: settingObj.Authorization
+          Authorization: settingObj.Authorization,
+          Cookie: settingObj.Cookie
         });
 
         const state = getWorkspaceStateUtil().getAll();
