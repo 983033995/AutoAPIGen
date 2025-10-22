@@ -1,5 +1,27 @@
 
-# AutoAPIGen-Vsix
+<!--
+ * @FilePath: /AutoAPIGen/README.md
+ * @Description: 
+-->
+
+# AutoAPIGen
+
+<div align="center">
+
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/983033995/AutoAPIGen?style=flat-square)
+![GitHub](https://img.shields.io/github/license/983033995/AutoAPIGen?style=flat-square)
+![GitHub stars](https://img.shields.io/github/stars/983033995/AutoAPIGen?style=flat-square)
+![GitHub forks](https://img.shields.io/github/forks/983033995/AutoAPIGen?style=flat-square)
+![GitHub issues](https://img.shields.io/github/issues/983033995/AutoAPIGen?style=flat-square)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/983033995/AutoAPIGen?style=flat-square)
+![Visual Studio Marketplace Downloads](https://img.shields.io/visual-studio-marketplace/d/AutoAPIGen.AutoAPIGen?style=flat-square&label=VS%20Code%20Downloads)
+![Visual Studio Marketplace Rating](https://img.shields.io/visual-studio-marketplace/r/AutoAPIGen.AutoAPIGen?style=flat-square)
+
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![VSCode](https://img.shields.io/badge/VSCode-007ACC?style=flat-square&logo=visual-studio-code&logoColor=white)](https://code.visualstudio.com/)
+[![Node.js](https://img.shields.io/badge/Node.js-43853D?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org/)
+
+</div>
 
 ## 简介
 
@@ -35,8 +57,23 @@ AutoAPIGen 是一款专为 VSCode 打造的高效插件，旨在根据团队的�
 
 ## 贡献
 
-欢迎对本项目进行贡献！您可以通过提交 Pull Request 或报告 Issue 的方式参与到项目中。
+欢迎对本项目进行贡献！请查看我们的 [贡献指南](CONTRIBUTING.md) 了解如何参与项目开发。
+
+### 快速开始贡献
+
+- 🐛 [报告 Bug](https://github.com/983033995/AutoAPIGen/issues/new?assignees=&labels=bug&template=bug_report.md)
+- 💡 [提出功能建议](https://github.com/983033995/AutoAPIGen/issues/new?assignees=&labels=enhancement&template=feature_request.md)
+- 📖 [改进文档](https://doc.du-ai.cn/)
+- 🔧 [提交代码](https://github.com/983033995/AutoAPIGen/pulls)
+
+### 行为准则
+
+请注意，本项目遵循 [贡献者行为准则](CODE_OF_CONDUCT.md)。参与此项目即表示您同意遵守其条款。
+
+### 安全
+
+如果您发现安全漏洞，请查看我们的 [安全政策](SECURITY.md) 了解如何负责任地报告。
 
 ## 许可证
 
-本项目采用 MIT 许可证。
+本项目采用 [MIT 许可证](LICENSE)。
