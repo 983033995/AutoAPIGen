@@ -17,8 +17,8 @@
   },
   "main": "./dist/extension.js",
   "scripts": {
-    "vscode:prepublish": "npm run compile && npm run optimize-monaco && npm run clean-chunks",
-    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\" && npm run remove-console",
+    "vscode:prepublish": "pnpm run compile && pnpm run optimize-monaco && pnpm run clean-chunks",
+    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\" && pnpm run remove-console",
     "remove-console": "node scripts/remove-console.js",
     "optimize-monaco": "node scripts/optimize-monaco.js",
     "clean-chunks": "node scripts/clean-chunks.js",
@@ -26,7 +26,17 @@
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,vue}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   },
   "contributes": {
     "viewsContainers": {
@@ -116,7 +126,9 @@
     "@vitejs/plugin-vue": "^2.3.3",
     "concurrently": "^7.6.0",
     "eslint-plugin-vue": "^9.30.0",
+    "husky": "^9.1.7",
     "jsdom": "^20.0.3",
+    "lint-staged": "^16.2.5",
     "tailwindcss": "^3.2.4",
     "terser": "^5.39.0",
     "typescript": "^5.6.3",
