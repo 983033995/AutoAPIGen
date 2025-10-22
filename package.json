@@ -1,130 +1,62 @@
 {
-  "name": "AutoAPIGen",
+  "name": "autoapigen",
   "displayName": "AutoAPIGen",
-  "description": "Automatically generate API functions to improve development efficiency. Supports TypeScript typing, processing queries and path parameters, and integrates with Axios for seamless API requests. Ideal for developers to save time and avoid duplicate API boilerplate code.",
-  "version": "1.2.11",
-  "license": "MIT",
-  "publisher": "script",
+  "description": "AutoAPIGen 是一款专为 VSCode 打造的高效插件，旨在根据团队的接口文档，自动生成 TypeScript 接口请求代码及其对应的类型定义。该插件极大地提升了开发者在构建 API 接口请求过程中的效率，节省时间与精力，同时避免手动编写代码带来的错误风险。AutoAPIGen 提供了规范化和自动化的解决方案，助力开发团队更加高效地协作与开发",
+  "version": "0.0.1",
   "engines": {
     "vscode": "^1.74.0"
   },
   "categories": [
     "Other"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/983033995/AutoAPIGen-Vsix.git"
-  },
-  "main": "./dist/extension.js",
-  "scripts": {
-    "vscode:prepublish": "npm run compile && npm run optimize-monaco && npm run clean-chunks",
-    "compile": "concurrently \"tsc -p ./tsconfig.extension.json --skipLibCheck\" \"vite build\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css\" && npm run remove-console",
-    "remove-console": "node scripts/remove-console.js",
-    "optimize-monaco": "node scripts/optimize-monaco.js",
-    "clean-chunks": "node scripts/clean-chunks.js",
-    "watch": "concurrently \"tsc -w -p ./tsconfig.extension.json --skipLibCheck\" \"vite build --watch\" \"tailwindcss -i ./src/assets/css/main.css -o ./dist/output.css --watch\"",
-    "lint": "eslint \"src/**/*.{ts,vue}\"",
-    "typecheck": "vue-tsc --noEmit --skipLibCheck",
-    "test": "vitest",
-    "test:ui": "vitest --ui"
-  },
+  "activationEvents": [],
+  "main": "./out/extension.js",
   "contributes": {
-    "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "auto-api-gen",
-          "title": "AutoAPIGen",
-          "icon": "./dist/compiled/default.png"
-        }
-      ]
-    },
-    "views": {
-      "auto-api-gen": [
-        {
-          "type": "webview",
-          "id": "base-view-sidebar",
-          "name": "Auto API Gen Extension",
-          "icon": "./dist/compiled/default.png",
-          "contextualTitle": "Auto API Gen Extension"
-        }
-      ]
-    },
     "commands": [
       {
-        "command": "AutoAPIGen.showConfigPagePanel",
-        "title": "showConfigPagePanel"
+        "command": "autoapigen.helloWorld",
+        "title": "Hello World"
       },
       {
-        "command": "AutoAPIGen.showApiDetailPanel",
-        "title": "showApiDetailPanel"
-      },
-      {
-        "command": "AutoAPIGen.closeConfigPagePanel",
-        "title": "closeConfigPagePanel"
-      },
-      {
-        "command": "AutoAPIGen.copyToClipboard",
-        "title": "Copy Text to Clipboard"
+        "command": "autoapigen.openWebview",
+        "title": "AutoAPIGen"
       }
     ],
-    "activationEvents": [
-      "onCommand:extension.start",
-      "onLanguage:javascript",
-      "onView: base-view-sidebar",
-      "onCommand:AutoAPIGen.showConfigPagePanel",
-      "onCommand:AutoAPIGen.closeConfigPagePanel",
-      "onCommand:AutoAPIGen.showApiDetailPanel",
-      "onCommand:AutoAPIGen.copyToClipboard"
-    ]
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "autoapigen.openWebview",
+          "when": "explorerResourceIsFolder",
+          "group": "navigation"
+        }
+      ]
+    }
   },
-  "dependencies": {
-    "@iconify-json/hugeicons": "^1.1.0",
-    "@iconify-json/noto": "^1.1.18",
-    "@iconify/tailwind": "^1.1.1",
-    "@intlify/unplugin-vue-i18n": "^0.8.1",
-    "@monaco-editor/loader": "^1.4.0",
-    "@trivago/prettier-plugin-sort-imports": "^4.3.0",
-    "@types/prettier": "^3.0.0",
-    "@vitest/ui": "^0.26.2",
-    "@vueuse/core": "^10.11.0",
-    "axios": "^1.7.2",
-    "dayjs": "^1.11.13",
-    "eslint": "^8.50.0",
-    "fs-extra": "^11.2.0",
-    "monaco-editor": "^0.52.0",
-    "pinyin-pro": "^3.23.1",
-    "prettier": "3.3.2",
-    "prettier-plugin-organize-imports": "^4.1.0",
-    "vue": "^3.2.45",
-    "vue-i18n": "9"
+  "scripts": {
+    "vscode:prepublish": "pnpm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "pnpm run compile && pnpm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "vscode-test"
   },
   "devDependencies": {
-    "@arco-design/web-vue": "^2.55.3",
-    "@arco-plugins/vite-vue": "^1.4.5",
-    "@iconify-json/logos": "^1.1.43",
-    "@iconify-json/mdi": "^1.1.39",
-    "@iconify-json/ph": "^1.1.13",
-    "@iconify-json/tabler": "^1.1.117",
-    "@iconify-json/vscode-icons": "^1.1.35",
-    "@testing-library/jest-dom": "^5.16.5",
-    "@testing-library/vue": "^6.6.1",
-    "@types/jest": "^29.2.4",
-    "@types/node": "^22.9.0",
-    "@types/vscode": "^1.73.0",
-    "@typescript-eslint/eslint-plugin": "^8.13.0",
-    "@typescript-eslint/parser": "^8.13.0",
-    "@vitejs/plugin-vue": "^2.3.3",
-    "concurrently": "^7.6.0",
-    "eslint-plugin-vue": "^9.30.0",
-    "jsdom": "^20.0.3",
-    "tailwindcss": "^3.2.4",
-    "terser": "^5.39.0",
-    "typescript": "^5.6.3",
-    "unplugin-auto-import": "^0.17.6",
-    "unplugin-icons": "^0.14.15",
-    "unplugin-vue-components": "^0.27.0",
-    "vite": "^2.9.14",
-    "vitest": "^0.26.2",
-    "vue-tsc": "^2.1.10"
-  }
+    "@types/vscode": "^1.74.0",
+    "@types/mocha": "^10.0.7",
+    "@types/node": "20.x",
+    "@typescript-eslint/eslint-plugin": "^8.3.0",
+    "@typescript-eslint/parser": "^8.3.0",
+    "eslint": "^9.9.1",
+    "typescript": "^5.5.4",
+    "@vscode/test-cli": "^0.0.10",
+    "@vscode/test-electron": "^2.4.1"
+  },
+  "dependencies": {
+    "axios": "^1.7.7"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/983033995/AutoAPIGen.git"
+  },
+  "license": "MIT"
 }
