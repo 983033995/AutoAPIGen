@@ -91,7 +91,7 @@
     "@iconify-json/hugeicons": "^1.1.0",
     "@iconify-json/noto": "^1.1.18",
     "@iconify/tailwind": "^1.1.1",
-    "@intlify/unplugin-vue-i18n": "^0.8.1",
+    "@intlify/unplugin-vue-i18n": "^6.0.8",
     "@monaco-editor/loader": "^1.4.0",
     "@trivago/prettier-plugin-sort-imports": "^4.3.0",
     "@types/prettier": "^3.0.0",
