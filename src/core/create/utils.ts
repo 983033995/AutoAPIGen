@@ -190,11 +190,16 @@ export function buildParametersSchema(
     interfaceName: string
 ): string {
     if (!configObj) {
-        return `export interface ${interfaceName} {${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
+        // 空对象使用 type = object 避免 ESLint 空 interface 警告
+        return `export type ${interfaceName} = object${'\n'}`;
     } else if (configObj.jsonSchema) {
         return transformSchema(configObj.jsonSchema, interfaceName);
     } else {
         const bodyParameters: any[] = configObj.parameters || [];
+        // 如果没有参数，使用 type = object 避免 ESLint 空 interface 警告
+        if (bodyParameters.length === 0) {
+            return `export type ${interfaceName} = object${'\n'}`;
+        }
         const bodyParametersReturnString = bodyParameters.reduce((acc, cur) => {
             return (
                 acc +
@@ -241,21 +246,60 @@ export function transformSchema(
         const type = obj?.type || "object";
         if (type === "object") {
             let resStr = "";
-            const {
+            let {
                 "x-apifox-orders": orders = [],
+                "x-apifox-refs": apifoxRefs = {},
                 required = [],
                 properties = {},
             } = obj;
-            const keys = [...new Set([...orders, ...Object.keys(properties)])].sort()
+
+            // 处理 x-apifox-refs 中的引用，合并到 properties
+            if (apifoxRefs && Object.keys(apifoxRefs).length > 0) {
+                for (const [refKey, refConfig] of Object.entries(apifoxRefs)) {
+                    if (refConfig && typeof refConfig === 'object' && (refConfig as any).$ref) {
+                        const refId = (refConfig as any).$ref.split("/").pop();
+                        let referencedSchema = apiDataSchemas.find((item) => item.id === +refId)?.jsonSchema || {};
+                        
+                        // 应用 x-apifox-overrides 覆盖配置
+                        if ((refConfig as any)["x-apifox-overrides"] && (referencedSchema as any).properties) {
+                            const overrides = (refConfig as any)["x-apifox-overrides"];
+                            referencedSchema = {
+                                ...referencedSchema,
+                                properties: {
+                                    ...(referencedSchema as any).properties,
+                                    ...overrides
+                                }
+                            };
+                        }
+                        
+                        // 合并引用 schema 的 properties
+                        if ((referencedSchema as any).properties) {
+                            properties = { ...properties, ...(referencedSchema as any).properties };
+                        }
+                        // 合并 required
+                        if ((referencedSchema as any).required) {
+                            required = [...required, ...(referencedSchema as any).required];
+                        }
+                        // 合并 orders
+                        if ((referencedSchema as any)["x-apifox-orders"]) {
+                            orders = [...orders, ...(referencedSchema as any)["x-apifox-orders"]];
+                        }
+                    }
+                }
+            }
+
+            const keys = [...new Set([...orders, ...Object.keys(properties)])].filter(k => !k.startsWith('01')).sort()
             for (const key of keys) {
                 const property = properties[key];
                 if (!property || property["x-tmp-pending-properties"]) continue;
 
                 const title = property.title || "";
+                const description = property.description || "";
+                const comment = title || description; // 优先使用 title，没有则使用 description
                 const isRequired = required.includes(key);
                 const typeStr = buildPropertyType(property, containsChinese(key) ? cnToPinyin(key) : key, faceName);
 
-                resStr += `${title ? `\n    /** ${title} */` : ''}${'\n'}     ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
+                resStr += `${comment ? `\n    /** ${comment} */` : ''}${'\n'}     ${nameFormatter(key)}${isRequired ? "" : "?"}: ${property.type === "array" && (property.$ref || property.items.$ref) ? typeStr + "[]" : typeStr};`;
             }
             return resStr;
         } else if (type === "array") {
@@ -274,11 +318,17 @@ export function transformSchema(
         res = `export type ${interfaceName} = null`;
     } else if (jsonSchema.type === "object" || jsonSchema.$ref) {
         // 处理对象类型或引用类型，生成interface
-        res = `export interface ${interfaceName} {
-        ${output(jsonSchema, interfaceName)}
+        const outputContent = output(jsonSchema, interfaceName);
+        // 如果 output 返回空内容，说明是空对象，使用 type = object 避免 ESLint 空 interface 警告
+        if (!outputContent.trim()) {
+            res = `export type ${interfaceName} = object${'\n'}`;
+        } else {
+            res = `export interface ${interfaceName} {
+        ${outputContent}
         ${buildTypeExtension()}
       }
     `;
+        }
     } else {
         // 处理其他类型，生成type alias
         const baseType = buildPropertyType(jsonSchema, "item", interfaceName);
@@ -366,6 +416,14 @@ export function transformSchema(
             childrenObj?.$ref || childrenObj?.items?.$ref
                 ? getRefObj(childrenObj.$ref || childrenObj?.items?.$ref)
                 : childrenObj;
+        
+        // 检查是否为空对象（没有 properties 或 properties 为空）
+        const isEmptyObject = !noRef.properties || Object.keys(noRef.properties).length === 0;
+        if (isEmptyObject && type !== "string") {
+            // 空对象直接返回 { [key: string]: any }，不生成单独的 interface
+            return "{ [key: string]: any }";
+        }
+
         let description = noRef.title || noRef.description ? `\n/** ${noRef.title || ""}${noRef.description || ""} */` : `\n /** ${childrenFaceName} */`
         let childrenResStr =
             type === "string"
@@ -948,6 +1006,12 @@ export async function updateExistingFiles(
  */
 function removeTypeDefinitions(fileContent: string, typeName: string) {
     const lines = fileContent.split("\n");
+    const upperTypeName = firstToLocaleUpperCase(typeName);
+
+    // 构建正则表达式，匹配任意前缀 + typeName 或 upperTypeName
+    const functionPattern = new RegExp(
+        `^export (const|function)\\s+(?:use|useOption|\\w+)?(${typeName}|${upperTypeName})\\b`
+    );
 
     // 初始化状态机变量
     let isInTargetBlock = false; // 当前行是否在要删除的块中
@@ -969,13 +1033,15 @@ function removeTypeDefinitions(fileContent: string, typeName: string) {
             !isInTargetBlock &&
             (line.startsWith(`export type ${typeName}`) ||
                 line.startsWith(`export interface ${typeName}`) ||
-                line.startsWith(`export const use${firstToLocaleUpperCase(typeName)}`) ||
-                line.startsWith(`export function use${firstToLocaleUpperCase(typeName)}`) ||
-                line.startsWith(`export const ${typeName}`) ||
-                line.startsWith(`export function ${typeName}`))
+                functionPattern.test(line))
         ) {
+            buffer = []; // 清空缓冲区（删除前置注释）
+            // 对于 export type xxx = yyy 这种单行类型定义，直接跳过这一行即可
+            if (line.startsWith(`export type ${typeName}`)) {
+                // 单行类型定义，不需要进入块状态
+                continue;
+            }
             isInTargetBlock = true; // 标记进入目标块
-            buffer = []; // 清空缓冲区，开始新的删除块
             continue; // 跳过当前行（不加入输出）
         }
 

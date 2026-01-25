@@ -4,6 +4,20 @@
 -->
 # Changelog
 
+## [1.2.12] - 2025-01-25
+
+### 🔧 功能增强
+
+- **接口字段描述支持**：生成 interface 时支持 `description` 字段作为注释，优先使用 `title`，没有则使用 `description` ✅
+- **x-apifox-refs 引用解析**：完善 `transformSchema` 函数，支持解析 `x-apifox-refs` 中的 `$ref` 引用并合并到 properties ✅
+- **x-apifox-overrides 覆盖配置**：支持通过 `x-apifox-overrides` 覆盖引用 schema 中的字段定义 ✅
+
+### 🐛 问题修复
+
+- **单行 type 定义删除修复**：修复 `removeTypeDefinitions` 函数处理 `export type xxx = boolean` 单行类型定义时，导致后续内容被误删的问题 ✅
+- **空对象 interface 警告修复**：当 body 参数为空或 properties 为空时，生成 `export type xxx = object` 替代空 interface，避免 ESLint 警告 ✅
+- **空引用对象处理优化**：当 `$ref` 引用的 schema 是空对象时，直接返回 `{ [key: string]: any }` 而不是生成空 interface ✅
+
 ## [1.2.11] - 2025-01-27
 
 ### 🆕 新增功能
