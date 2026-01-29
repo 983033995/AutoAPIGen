@@ -191,14 +191,14 @@ export function buildParametersSchema(
 ): string {
     if (!configObj) {
         // 空对象使用 type = object 避免 ESLint 空 interface 警告
-        return `export type ${interfaceName} = object${'\n'}`;
+        return `export type ${interfaceName} = object;${'\n'}`;
     } else if (configObj.jsonSchema) {
         return transformSchema(configObj.jsonSchema, interfaceName);
     } else {
         const bodyParameters: any[] = configObj.parameters || [];
         // 如果没有参数，使用 type = object 避免 ESLint 空 interface 警告
         if (bodyParameters.length === 0) {
-            return `export type ${interfaceName} = object${'\n'}`;
+            return `export type ${interfaceName} = object;${'\n'}`;
         }
         const bodyParametersReturnString = bodyParameters.reduce((acc, cur) => {
             return (
@@ -332,7 +332,9 @@ export function transformSchema(
     } else {
         // 处理其他类型，生成type alias
         const baseType = buildPropertyType(jsonSchema, "item", interfaceName);
-        res = `export type ${interfaceName} = ${jsonSchema.type === "array" ? baseType + "[]" : baseType}
+        // 注意：如果 baseType 已经包含 []（来自 buildChildrenOutput），不需要再加 []
+        const needsArraySuffix = jsonSchema.type === "array" && !baseType.endsWith("[]");
+        res = `export type ${interfaceName} = ${needsArraySuffix ? baseType + "[]" : baseType};
     `;
     }
 
@@ -417,18 +419,24 @@ export function transformSchema(
                 ? getRefObj(childrenObj.$ref || childrenObj?.items?.$ref)
                 : childrenObj;
         
+        // 对于 array 类型，实际要生成 interface 的是 items 对象
+        const schemaForInterface = type === "array" 
+            ? (noRef.items || childrenObj.items) 
+            : noRef;
+        
         // 检查是否为空对象（没有 properties 或 properties 为空）
-        const isEmptyObject = !noRef.properties || Object.keys(noRef.properties).length === 0;
+        const isEmptyObject = !schemaForInterface?.properties || Object.keys(schemaForInterface.properties).length === 0;
         if (isEmptyObject && type !== "string") {
             // 空对象直接返回 { [key: string]: any }，不生成单独的 interface
-            return "{ [key: string]: any }";
+            return type === "array" ? "{ [key: string]: any }[]" : "{ [key: string]: any }";
         }
 
-        let description = noRef.title || noRef.description ? `\n/** ${noRef.title || ""}${noRef.description || ""} */` : `\n /** ${childrenFaceName} */`
+        const descSource = schemaForInterface?.title || schemaForInterface?.description || noRef.title || noRef.description;
+        let description = descSource ? `\n/** ${schemaForInterface?.title || noRef.title || ""}${schemaForInterface?.description || noRef.description || ""} */` : `\n /** ${childrenFaceName} */`
         let childrenResStr =
             type === "string"
                 ? `${description}${'\n'}export type ${childrenInterfaceName} = ${buildParameters(noRef as unknown as ApiDetailParametersQuery)}${'\n'}`
-                : `${description}${'\n'}export interface ${childrenInterfaceName} {${'\n'}    ${output(noRef, childrenFaceName)}${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
+                : `${description}${'\n'}export interface ${childrenInterfaceName} {${'\n'}    ${output(schemaForInterface, childrenInterfaceName)}${'\n'}    ${buildTypeExtension()}${'\n'}}${'\n'}`;
         childrenRes += childrenResStr;
 
         return childrenInterface;
@@ -1012,6 +1020,16 @@ function removeTypeDefinitions(fileContent: string, typeName: string) {
     const functionPattern = new RegExp(
         `^export (const|function)\\s+(?:use|useOption|\\w+)?(${typeName}|${upperTypeName})\\b`
     );
+    
+    // 构建正则表达式，匹配 typeName 及其子类型（如 xxxResItem, xxxResItemItem 等）
+    const typePattern = new RegExp(
+        `^export (type|interface)\\s+(${typeName}|${upperTypeName})(\\w*)\\b`
+    );
+    
+    // 构建正则表达式，匹配独立的类型引用行（如 "  xxxResItemItem[]"）
+    const standaloneTypePattern = new RegExp(
+        `^\\s*(${typeName}|${upperTypeName})(\\w*)\\[\\]\\s*$`
+    );
 
     // 初始化状态机变量
     let isInTargetBlock = false; // 当前行是否在要删除的块中
@@ -1028,16 +1046,20 @@ function removeTypeDefinitions(fileContent: string, typeName: string) {
             line.startsWith("//") ||
             !line.length;
 
-        // 检查是否进入目标类型定义块
+        // 检查是否是独立的类型引用行（如 "  xxxResItemItem[]"），直接跳过
+        if (standaloneTypePattern.test(line)) {
+            buffer = []; // 清空缓冲区
+            continue; // 跳过当前行
+        }
+        
+        // 检查是否进入目标类型定义块（包括子类型如 xxxResItem, xxxResItemItem）
         if (
             !isInTargetBlock &&
-            (line.startsWith(`export type ${typeName}`) ||
-                line.startsWith(`export interface ${typeName}`) ||
-                functionPattern.test(line))
+            (typePattern.test(line) || functionPattern.test(line))
         ) {
             buffer = []; // 清空缓冲区（删除前置注释）
             // 对于 export type xxx = yyy 这种单行类型定义，直接跳过这一行即可
-            if (line.startsWith(`export type ${typeName}`)) {
+            if (line.match(/^export type\s+/)) {
                 // 单行类型定义，不需要进入块状态
                 continue;
             }

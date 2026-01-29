@@ -4,6 +4,21 @@
 -->
 # Changelog
 
+## [1.2.13] - 2026-01-29
+
+### 🐛 问题修复
+
+- **Array 类型代码生成修复**：修复 array 类型生成时出现双重 `[]` 的问题（如 `xxxItem[][]`），现在正确生成为 `xxxItem[]` ✅
+- **空对象检查逻辑优化**：修复 `buildChildrenOutput` 函数中对 array 类型的空对象检查逻辑，正确检查 `items.properties` 而不是 `noRef.properties` ✅
+- **接口定义分号补全**：在 `export type xxx = object` 和 `export type xxx = xxxItem[]` 语句末尾添加分号，确保代码格式正确 ✅
+- **更新已存在文件时的代码拼接修复**：修复更新已存在接口文件时，子类型定义被错误拼接到其他接口定义后面的问题 ✅
+- **类型定义删除优化**：增强 `removeTypeDefinitions` 函数，支持删除子类型定义（如 `xxxResItem`、`xxxResItemItem`）和独立的类型引用行 ✅
+
+### 🔧 功能增强
+
+- **Array 类型 Interface 生成**：对于 array 类型，现在使用 `items` 对象生成正确的 interface 定义，而不是使用整个 array 对象 ✅
+- **子类型命名优化**：`output` 函数调用时传入正确的接口名称（`childrenInterfaceName` 而不是 `childrenFaceName`），确保生成的代码更加规范 ✅
+
 ## [1.2.12] - 2025-01-25
 
 ### 🔧 功能增强
