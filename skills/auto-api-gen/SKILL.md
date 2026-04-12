@@ -22,7 +22,52 @@ aag init
 
 验证当前项目的 AutoAPIGen 配置是否正确，输出 appName、projectId、path 等信息。
 
-### 2. 查询接口
+### 2. 查看分组结构（AI 首选）
+
+```bash
+# 列出所有分组及其接口 ID（树状，人类可读）
+aag groups
+
+# 输出 JSON（AI 解析用，含完整树结构）
+aag groups --json
+```
+
+**`aag groups` 输出示例：**
+
+```
+分组列表（含接口 ID）：
+
+▶ bff
+  ▶ C端 (5个接口)  → IDs: 111 222 333 444 555
+    [111] POST    /bff/c-transaction/payment/pay
+    [222] POST    /bff/c-transaction/payment/paymentInfo
+    ...
+  ▶ B端 (3个接口)  → IDs: 666 777 888
+    ...
+```
+
+**`aag groups --json` 输出结构：**
+
+```json
+[
+  {
+    "group": "bff",
+    "apiCount": 0,
+    "apiIds": [],
+    "children": [
+      {
+        "group": "bff / C端 / 支付",
+        "apiCount": 5,
+        "apiIds": [111, 222, 333, 444, 555],
+        "apis": [{ "id": 111, "method": "POST", "path": "/bff/..." }],
+        "children": []
+      }
+    ]
+  }
+]
+```
+
+### 3. 查询接口
 
 ```bash
 # 查询所有接口
@@ -31,8 +76,8 @@ aag query
 # 按关键词搜索（路径或名称）
 aag query <keyword>
 
-# 按分组过滤
-aag query --group <groupName>
+# 按分组过滤，只输出 ID（AI 直接拼接 generate 命令）
+aag query --group <groupName> --ids-only
 
 # 输出完整 JSON（包含接口详情，适合 AI 解析）
 aag query --json
@@ -53,25 +98,25 @@ aag query --limit 20
     "path": "/api/user/{id}",
     "group": "用户模块 / 基础信息",
     "detail": {
-      "parameters": { "query": [...], "path": [...] },
-      "requestBody": { ... },
-      "responses": [...]
+      "parameters": { "query": [], "path": [] },
+      "requestBody": {},
+      "responses": []
     }
   }
 ]
 ```
 
-### 3. 生成代码
+### 4. 生成代码
 
 ```bash
-# 按接口 ID 生成（从 aag query 结果获取 id）
+# 按接口 ID 生成（从 aag groups 或 aag query 结果获取 id）
 aag generate 123456
+
+# 生成某个分组的全部接口（将 aag groups 输出的 IDs 直接传入）
+aag generate 111 222 333 444 555
 
 # 按路径关键词生成
 aag generate /api/user
-
-# 生成多个接口
-aag generate 123456 789012
 
 # 生成全部接口
 aag generate --all
@@ -83,64 +128,72 @@ aag generate 123456 --output src/services
 aag generate 123456 --dry-run
 ```
 
-**生成文件结构：**
+**生成文件结构（与插件完全一致）：**
 
 ```
-src/services/
-└── <groupPath>/
+<config.path>/
+└── <appName>/[<projectName>/]<folder1>/<folder2>/
     ├── apifox.ts      # 接口函数（axios/custom 模式）
     └── interface.ts   # TypeScript 类型定义
 ```
 
 ## AI 工具使用工作流
 
-当用户要求"查询某个接口"或"生成某个接口的代码"时，按以下步骤操作：
-
-### 步骤 1：确认配置
+### 场景一：生成指定分组下的所有接口（推荐）
 
 ```bash
+# 步骤 1：查看分组结构，找到目标分组的接口 ID
+aag groups --json
+
+# 步骤 2：从 JSON 中提取目标分组的 apiIds，直接生成
+aag generate 111 222 333 444 555
+```
+
+### 场景二：按关键词查询后生成
+
+```bash
+# 步骤 1：搜索关键词，只输出 ID
+aag query 支付 --ids-only
+
+# 步骤 2：将输出的 ID 直接用于生成（输出格式为空格分隔）
+aag generate $(aag query 支付 --ids-only)
+```
+
+### 场景三：完整分析接口详情后生成
+
+```bash
+# 步骤 1：确认配置
 aag init
-```
 
-如果报错，提示用户先通过 AutoAPIGen VSCode 插件完成项目配置。
-
-### 步骤 2：查询接口
-
-```bash
+# 步骤 2：查询接口详情（含参数/响应类型）
 aag query <关键词> --json
-```
 
-从 JSON 输出中获取接口 ID 和详情。
-
-### 步骤 3：生成代码
-
-```bash
+# 步骤 3：分析 JSON 后生成
 aag generate <接口ID>
 ```
 
-代码会自动写入配置文件中的 `path` 目录下。
-
-### 步骤 4：验证
-
-生成完成后，检查生成的 `.ts` 文件是否符合项目规范，必要时做微调。
-
 ## 典型示例
 
-**场景：生成用户登录接口的 TypeScript 代码**
+**场景：生成"支付"分组下所有接口**
 
 ```bash
-# 1. 搜索登录相关接口
-aag query 登录 --json
+# 1. 获取分组结构
+aag groups --json
+# 输出：[{ "group": "bff / C端 / 支付", "apiIds": [111,222,333,444,555], ... }]
 
-# 输出示例：
-# [{ "id": 456789, "name": "用户登录", "method": "POST", "path": "/api/auth/login", ... }]
-
-# 2. 生成代码
-aag generate 456789
+# 2. 直接生成整个分组
+aag generate 111 222 333 444 555
 
 # 输出：
-# ✓ 已生成: src/services/auth
+# ✓ 已生成: apps/copilot/src/services/apifox/JAVAZhiFu/bFF/CDuan/zhiFu
 # ✓ 共生成 2 个文件
+```
+
+**场景：快速生成登录接口**
+
+```bash
+# 一行搞定：查询 ID 并生成
+aag generate $(aag query 登录 --ids-only)
 ```
 
 ## 配置文件说明

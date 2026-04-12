@@ -2,7 +2,7 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
 import { loadConfig } from '../config'
-import { runQuery } from '../commands/query'
+import { runQuery, runGroups } from '../commands/query'
 import { runGenerate } from '../commands/generate'
 import { runInteractive } from '../commands/interactive'
 
@@ -19,6 +19,7 @@ program
   .description('搜索接口列表，支持按路径/名称关键词过滤')
   .option('-g, --group <group>', '按分组名称过滤')
   .option('-j, --json', '输出完整 JSON（适合 AI 工具使用）')
+  .option('--ids-only', '只输出接口 ID（空格分隔，AI 可直接拼接到 generate 命令）')
   .option('-l, --limit <n>', '限制返回数量', (val) => parseInt(val, 10), 50)
   .action(async (keyword: string | undefined, opts: any) => {
     try {
@@ -26,6 +27,7 @@ program
       await runQuery(config, keyword, {
         group: opts.group,
         json: opts.json,
+        idsOnly: opts.idsOnly,
         limit: opts.limit,
       })
     } catch (err: any) {
@@ -55,6 +57,21 @@ program
           dryRun: opts.dryRun,
         })
       }
+    } catch (err: any) {
+      console.error(chalk.red(`✗ ${err.message}`))
+      process.exit(1)
+    }
+  })
+
+// ─── aag groups ──────────────────────────────────────────────────────────────
+program
+  .command('groups')
+  .description('列出所有接口分组及其接口 ID（AI 用此确定要生成哪个分组）')
+  .option('-j, --json', '输出 JSON 格式（含完整树结构和 ID 列表）')
+  .action(async (opts: any) => {
+    try {
+      const config = loadConfig()
+      await runGroups(config, { json: opts.json })
     } catch (err: any) {
       console.error(chalk.red(`✗ ${err.message}`))
       process.exit(1)
