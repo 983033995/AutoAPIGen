@@ -47,12 +47,11 @@ function colorMethod(method: string): string {
 
 // ─── 工具函数 ─────────────────────────────────────────────────────────────────
 
-function sanitizeFolderName(name: string): string {
-  const hasChinese = /[\u4E00-\u9FFF]/.test(name)
-  const sanitized = name.replace(/[/\\:*?"<>|]/g, '').replace(/[\x00-\x1f]/g, '').trim()
-  return hasChinese
-    ? cnToPinyin(sanitized).toLowerCase().replace(/[^a-z0-9_-]/g, '')
-    : sanitized.replace(/[^a-zA-Z0-9_-]/g, '') || 'unnamed'
+/** 与插件保持一致：用 cnToPinyin 生成 camelCase 路径（如 zhiFuGuanLi） */
+function toFolderName(name: string): string {
+  const sanitized = name.replace(/[\/\\:*?"<>|]/g, '').replace(/[\x00-\x1f]/g, '').trim()
+  if (!sanitized) return 'unnamed'
+  return cnToPinyin(sanitized)
 }
 
 /** 把 ApiTreeListResData[] 转为内部 TreeFolder 树 */
@@ -73,7 +72,7 @@ function buildTree(
         groupDisplayPath: displayPath,
       } as ApiItem)
     } else if (node.type === 'apiDetailFolder') {
-      const sanitized = sanitizeFolderName(node.name)
+      const sanitized = toFolderName(node.name)
       const children = buildTree(
         node.children || [],
         [...groupPath, sanitized],
@@ -131,6 +130,9 @@ const ACTION_BACK     = '__BACK__'
 const ACTION_CONFIRM  = '__CONFIRM__'
 const ACTION_ALL      = '__ALL__'
 
+/** 全局确认标志：任意层级选择确认后，所有 browseFolder 层立即退出 */
+let _confirmed = false
+
 /**
  * 递归在某个文件夹层级交互，返回用户选中的 ApiItem 数组
  * selected 是跨层级共享的已选集合（用 id 做 key）
@@ -143,7 +145,7 @@ async function browseFolder(
 ): Promise<void> {
   const currentNodes = folder ? folder.children : allRootNodes
 
-  while (true) {
+  while (!_confirmed) {
     const apis = currentNodes.filter((n): n is ApiItem => !('kind' in n))
     const folders = currentNodes.filter((n): n is TreeFolder => 'kind' in n)
 
@@ -225,6 +227,7 @@ async function browseFolder(
     }
 
     if (action === ACTION_CONFIRM) {
+      _confirmed = true
       return
     }
 
@@ -308,10 +311,10 @@ export async function runInteractive(
 ): Promise<void> {
   const projectId = config.projectId[config.projectId.length - 1]
   const cwd = process.cwd()
-  const configPath = (config.path || 'src/services').replace(/^\//, '')
+  // 与插件保持一致：workspaceFolders[0] + config.path（path.join 会正确处理绝对/相对路径）
   const outputBase = output
     ? path.resolve(cwd, output)
-    : path.resolve(cwd, configPath)
+    : path.join(cwd, config.path || 'src/services')
 
   // ── 1. 拉取数据 ──
   const spinner = ora('连接 Apifox，获取接口数据...').start()
@@ -346,6 +349,7 @@ export async function runInteractive(
   }
 
   // ── 2. 树形交互浏览 ──
+  _confirmed = false
   const selected = new Map<number, ApiItem>()
   await browseFolder(null, rootNodes, [], selected)
 

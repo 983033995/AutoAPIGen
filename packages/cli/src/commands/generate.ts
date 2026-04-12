@@ -48,11 +48,10 @@ export async function runGenerate(
 ): Promise<void> {
   const projectId = config.projectId[config.projectId.length - 1]
   const cwd = process.cwd()
-  // config.path 可能是插件写入的绝对路径（如 /apps/...），CLI 中需转为相对于 cwd 的路径
-  const configPath = (config.path || 'src/services').replace(/^\//, '')
+  // 与插件保持一致：path.join(workspaceFolders[0], config.path)
   const outputBase = options.output
     ? path.resolve(cwd, options.output)
-    : path.resolve(cwd, configPath)
+    : path.join(cwd, config.path || 'src/services')
 
   const spinner = ora('连接 Apifox，获取接口数据...').start()
 
