@@ -29,7 +29,8 @@ function flattenTreeWithPath(
         groupPath,
       })
     } else if (node.type === 'apiDetailFolder' && node.children?.length) {
-      const folderName = cnToPinyin(node.name)
+      const hasChinese = /[\u4E00-\u9FFF]/.test(node.name)
+      const folderName = hasChinese ? cnToPinyin(node.name).toLowerCase() : node.name
       result.push(...flattenTreeWithPath(node.children, [...groupPath, folderName]))
     }
   }
@@ -95,14 +96,8 @@ export async function runGenerate(
     const groupedByDir = new Map<string, typeof targetApiItems>()
     for (const item of targetApiItems) {
       let dirPath: string
-      if (config.useProjectName) {
-        // 按接口树路径决定目录
-        const groupDir = item.groupPath.map((g) => cnToPinyin(g)).join('/')
-        dirPath = path.join(outputBase, groupDir)
-      } else {
-        const groupDir = item.groupPath.join('/')
-        dirPath = path.join(outputBase, groupDir)
-      }
+      const groupDir = item.groupPath.join('/')
+      dirPath = path.join(outputBase, groupDir)
       const existing = groupedByDir.get(dirPath) || []
       existing.push(item)
       groupedByDir.set(dirPath, existing)
