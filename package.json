@@ -75,6 +75,11 @@
       {
         "command": "AutoAPIGen.copyToClipboard",
         "title": "Copy Text to Clipboard"
+      },
+      {
+        "command": "AutoAPIGen.enableAISupport",
+        "title": "AutoAPIGen: 启用 AI 工具支持（安装 aag CLI）",
+        "category": "AutoAPIGen"
       }
     ],
     "activationEvents": [

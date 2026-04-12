@@ -2,6 +2,7 @@
  * @FilePath: /AutoAPIGen/src/extension.ts
  * @Description: 
  */
+/* eslint-disable @typescript-eslint/triple-slash-reference */
 /// <reference path="./global.d.ts" />
 import * as vscode from 'vscode'
 import { BaseViewProvider } from './core/webview/BaseViewProvider'
@@ -98,6 +99,7 @@ export function activate(context: vscode.ExtensionContext) {
 
         // 打开接口详情页
         let apiDetailPanel: vscode.WebviewPanel | undefined = undefined;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const showApiDetailPanel = async (title: string, data: any) => {
             try {
                 // 始终在右侧列显示（vscode.ViewColumn.Beside）
@@ -150,6 +152,25 @@ export function activate(context: vscode.ExtensionContext) {
 
         const disposable2 = vscode.commands.registerCommand('AutoAPIGen.showApiDetailPanel', showApiDetailPanel);
         context.subscriptions.push(disposable2);
+
+        // 启用 AI 工具支持（安装 CLI）
+        const enableAISupportDisposable = vscode.commands.registerCommand('AutoAPIGen.enableAISupport', async () => {
+            const terminal = vscode.window.createTerminal({
+                name: 'AutoAPIGen — 启用 AI 支持',
+                hideFromUser: false,
+            })
+            terminal.show()
+            terminal.sendText('npm install -g auto-api-gen-cli')
+            const answer = await vscode.window.showInformationMessage(
+                '正在全局安装 auto-api-gen-cli...\n安装完成后，AI 工具即可通过 aag 命令查询接口和生成代码。',
+                '查看使用说明',
+                '关闭'
+            )
+            if (answer === '查看使用说明') {
+                vscode.env.openExternal(vscode.Uri.parse('https://github.com/983033995/AutoAPIGen/blob/main/skills/auto-api-gen/SKILL.md'))
+            }
+        })
+        context.subscriptions.push(enableAISupportDisposable)
 
         // 复制文本内容
         const copyTextDisposable = vscode.commands.registerCommand('AutoAPIGen.copyToClipboard', async (text: string) => {

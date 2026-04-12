@@ -28,7 +28,7 @@
       "ts": "@typescript-eslint/parser"
     }
   },
-  "ignorePatterns": ["dist", "**/*.d.ts"],
+  "ignorePatterns": ["dist", "**/*.d.ts", "packages/**"],
   "globals": {
     "vscode": "writable"
   }
