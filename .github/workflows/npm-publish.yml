@@ -21,7 +21,26 @@ jobs:
         with:
           version: 10
 
-      - name: Publish to npm
-        run: pnpm publish --access public --no-git-checks
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build packages
+        run: |
+          pnpm -F @zhangheteng/aag-cli run build
+          pnpm -F @zhangheteng/aag-core run build
+
+      - name: Publish @zhangheteng/aag-core
+        run: node scripts/pre-publish.js packages/core "npm publish --access public --no-git-checks"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @zhangheteng/aag-cli
+        run: node scripts/pre-publish.js packages/cli "npm publish --access public --no-git-checks"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
