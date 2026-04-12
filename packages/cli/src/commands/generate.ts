@@ -30,8 +30,12 @@ function flattenTreeWithPath(
       })
     } else if (node.type === 'apiDetailFolder' && node.children?.length) {
       const hasChinese = /[\u4E00-\u9FFF]/.test(node.name)
-      const folderName = hasChinese ? cnToPinyin(node.name).toLowerCase() : node.name
-      result.push(...flattenTreeWithPath(node.children, [...groupPath, folderName]))
+      // 过滤路径不合法字符（/ \ : * ? " < > | 以及控制字符），再做转换
+      const sanitized = node.name.replace(/[/\\:*?"<>|]/g, '').replace(/[\x00-\x1f]/g, '').trim()
+      const folderName = hasChinese
+        ? cnToPinyin(sanitized).toLowerCase().replace(/[^a-z0-9_-]/g, '')
+        : sanitized.replace(/[^a-zA-Z0-9_-]/g, '') || 'unnamed'
+      result.push(...flattenTreeWithPath(node.children, [...groupPath, folderName || 'unnamed']))
     }
   }
   return result
