@@ -5,6 +5,7 @@
 /* eslint-disable @typescript-eslint/triple-slash-reference */
 /// <reference path="./global.d.ts" />
 import * as vscode from 'vscode'
+import path from 'path'
 import { BaseViewProvider } from './core/webview/BaseViewProvider'
 import { generateConfigPage } from './core/webview/configPageProvider'
 import { generateApiDetailPage } from './core/webview/apiDetailPageProvider'
@@ -153,24 +154,84 @@ export function activate(context: vscode.ExtensionContext) {
         const disposable2 = vscode.commands.registerCommand('AutoAPIGen.showApiDetailPanel', showApiDetailPanel);
         context.subscriptions.push(disposable2);
 
-        // 启用 AI 工具支持（安装 CLI）
-        const enableAISupportDisposable = vscode.commands.registerCommand('AutoAPIGen.enableAISupport', async () => {
-            const terminal = vscode.window.createTerminal({
-                name: 'AutoAPIGen — 启用 AI 支持',
-                hideFromUser: false,
-            })
-            terminal.show()
-            terminal.sendText('npm install -g auto-api-gen-cli')
-            const answer = await vscode.window.showInformationMessage(
-                '正在全局安装 auto-api-gen-cli...\n安装完成后，AI 工具即可通过 aag 命令查询接口和生成代码。',
-                '查看使用说明',
-                '关闭'
-            )
-            if (answer === '查看使用说明') {
-                vscode.env.openExternal(vscode.Uri.parse('https://github.com/983033995/AutoAPIGen/blob/main/skills/auto-api-gen/SKILL.md'))
-            }
-        })
-        context.subscriptions.push(enableAISupportDisposable)
+		// 启用 AI 工具支持（安装 CLI + 注入项目级 skill）
+		const enableAISupportDisposable = vscode.commands.registerCommand('AutoAPIGen.enableAISupport', async () => {
+			const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri?.fsPath
+			if (!workspaceRoot) {
+				vscode.window.showErrorMessage('未找到工作区目录，请先打开一个项目')
+				return
+			}
+
+			// ── 1. 安装 CLI ──
+			const terminal = vscode.window.createTerminal({
+				name: 'AutoAPIGen — 启用 AI 支持',
+				hideFromUser: false,
+			})
+			terminal.show()
+			terminal.sendText('npm install -g auto-api-gen-cli')
+
+			// ── 2. 读取 SKILL.md（打包在插件内）──
+			const skillMdUri = vscode.Uri.joinPath(context.extensionUri, 'skills', 'auto-api-gen', 'SKILL.md')
+			let skillContent = ''
+			try {
+				const raw = await vscode.workspace.fs.readFile(skillMdUri)
+				skillContent = Buffer.from(raw).toString('utf-8')
+			} catch {
+				skillContent = '<!-- AutoAPIGen Skill: see https://github.com/983033995/AutoAPIGen/blob/main/skills/auto-api-gen/SKILL.md -->'
+			}
+
+			const MARKER_START = '<!-- AutoAPIGen:skill:start -->'
+			const MARKER_END = '<!-- AutoAPIGen:skill:end -->'
+			const block = `${MARKER_START}\n${skillContent}\n${MARKER_END}`
+
+			/** 把 skill 块写入目标文件（已存在则替换 marker 区间，否则追加） */
+			const injectSkill = async (filePath: string): Promise<void> => {
+				const uri = vscode.Uri.file(filePath)
+				const dirUri = vscode.Uri.file(path.dirname(filePath))
+				try { await vscode.workspace.fs.createDirectory(dirUri) } catch { /* 目录已存在 */ }
+
+				let existing = ''
+				try {
+					const raw = await vscode.workspace.fs.readFile(uri)
+					existing = Buffer.from(raw).toString('utf-8')
+				} catch { /* 文件不存在，从空内容开始 */ }
+
+				let updated: string
+				if (existing.includes(MARKER_START)) {
+					updated = existing.replace(
+						new RegExp(`${MARKER_START}[\\s\\S]*?${MARKER_END}`),
+						block
+					)
+				} else {
+					updated = existing ? `${existing}\n\n${block}` : block
+				}
+				await vscode.workspace.fs.writeFile(uri, Buffer.from(updated, 'utf-8'))
+			}
+
+			// 各 AI 工具识别的项目级规则文件
+			const targets = [
+				path.join(workspaceRoot, '.windsurfrules'),                         // Windsurf
+				path.join(workspaceRoot, '.windsurf', 'rules', 'auto-api-gen.md'),  // Windsurf rules dir
+				path.join(workspaceRoot, '.cursorrules'),                            // Cursor legacy
+				path.join(workspaceRoot, '.cursor', 'rules', 'auto-api-gen.mdc'),   // Cursor rules dir
+				path.join(workspaceRoot, 'CLAUDE.md'),                              // Claude Code
+				path.join(workspaceRoot, '.github', 'copilot-instructions.md'),     // GitHub Copilot
+			]
+
+			const results = await Promise.allSettled(targets.map(injectSkill))
+			const failed = results.filter(r => r.status === 'rejected').length
+			const succeeded = results.length - failed
+
+			const answer = await vscode.window.showInformationMessage(
+				`AutoAPIGen AI 支持已启用！\n✓ aag CLI 正在安装中\n✓ Skill 已注入 ${succeeded} 个 AI 工具规则文件${failed ? `（${failed} 个失败）` : ''}`,
+				'查看使用说明',
+				'关闭'
+			)
+			if (answer === '查看使用说明') {
+				vscode.env.openExternal(vscode.Uri.parse('https://github.com/983033995/AutoAPIGen/blob/main/skills/auto-api-gen/SKILL.md'))
+			}
+		})
+		context.subscriptions.push(enableAISupportDisposable)
 
         // 复制文本内容
         const copyTextDisposable = vscode.commands.registerCommand('AutoAPIGen.copyToClipboard', async (text: string) => {
