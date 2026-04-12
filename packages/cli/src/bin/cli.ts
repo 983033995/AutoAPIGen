@@ -4,6 +4,7 @@ import chalk from 'chalk'
 import { loadConfig } from '../config'
 import { runQuery } from '../commands/query'
 import { runGenerate } from '../commands/generate'
+import { runInteractive } from '../commands/interactive'
 
 const program = new Command()
 
@@ -36,18 +37,39 @@ program
 // ─── aag generate [apiIds...] ─────────────────────────────────────────────────
 program
   .command('generate [apiIds...]')
-  .description('生成指定接口的 TypeScript 代码（传入接口 ID 或路径关键词）')
+  .description('生成指定接口的 TypeScript 代码（无参数时进入交互式选择）')
   .option('-a, --all', '生成全部接口')
   .option('-o, --output <dir>', '指定输出目录（默认读取配置文件 path 字段）')
   .option('--dry-run', '预览生成路径，不实际写入文件')
+  .option('-i, --interactive', '强制进入交互式选择模式')
   .action(async (apiIds: string[], opts: any) => {
     try {
       const config = loadConfig()
-      await runGenerate(config, apiIds, {
-        all: opts.all,
-        output: opts.output,
-        dryRun: opts.dryRun,
-      })
+      // 无参数 / 指定 -i 时进入交互模式
+      if ((!apiIds.length && !opts.all) || opts.interactive) {
+        await runInteractive(config, opts.output)
+      } else {
+        await runGenerate(config, apiIds, {
+          all: opts.all,
+          output: opts.output,
+          dryRun: opts.dryRun,
+        })
+      }
+    } catch (err: any) {
+      console.error(chalk.red(`✗ ${err.message}`))
+      process.exit(1)
+    }
+  })
+
+// ─── aag ui (交互式主入口) ──────────────────────────────────────────────────
+program
+  .command('ui')
+  .description('交互式界面：分组浏览 → 接口多选 → 生成代码')
+  .option('-o, --output <dir>', '指定输出目录（默认读取配置文件 path 字段）')
+  .action(async (opts: any) => {
+    try {
+      const config = loadConfig()
+      await runInteractive(config, opts.output)
     } catch (err: any) {
       console.error(chalk.red(`✗ ${err.message}`))
       process.exit(1)
