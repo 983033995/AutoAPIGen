@@ -87,20 +87,35 @@ aag query <keyword> --json
 aag query --limit 20
 ```
 
-**JSON 输出结构示例：**
+**JSON 输出结构示例（`summary` 字段为 AI 可直接理解的结构化摘要）：**
 
 ```json
 [
   {
     "id": 123456,
-    "name": "获取用户信息",
-    "method": "GET",
-    "path": "/api/user/{id}",
-    "group": "用户模块 / 基础信息",
-    "detail": {
-      "parameters": { "query": [], "path": [] },
-      "requestBody": {},
-      "responses": []
+    "name": "用户支付",
+    "method": "POST",
+    "path": "/bff/c-transaction/payment/pay",
+    "group": "bff / C端 / 支付",
+    "summary": {
+      "functionName": "postBffCTransactionPaymentPay",
+      "method": "POST",
+      "path": "/bff/c-transaction/payment/pay",
+      "description": "用户支付",
+      "pathParams": [],
+      "queryParams": [],
+      "body": {
+        "type": "json",
+        "fields": [
+          { "name": "orderId", "type": "string", "required": true, "description": "订单ID" },
+          { "name": "amount", "type": "number", "required": true, "description": "支付金额" },
+          { "name": "payType", "type": "string", "required": false, "description": "支付方式" }
+        ]
+      },
+      "response200": [
+        { "name": "code", "type": "number", "required": true, "description": "" },
+        { "name": "data", "type": "object", "required": false, "description": "支付结果" }
+      ]
     }
   }
 ]

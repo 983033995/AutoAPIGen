@@ -1,6 +1,7 @@
 import chalk from 'chalk'
 import { initHttp, getApiTreeList, getApiDetailList, getDataSchemas } from '@auto-api-gen/core'
-import type { ConfigFromModel, ApiTreeListResData, ApiDetailListData } from '@auto-api-gen/core'
+import type { ConfigFromModel, ApiTreeListResData, ApiDetailListData, ApiDetailParametersQuery } from '@auto-api-gen/core'
+import { buildParameters, convertPathToPascalCase } from '../generator/codeGen'
 
 export interface QueryOptions {
   group?: string
@@ -17,6 +18,71 @@ interface FlatApiItem {
   path: string
   tags: string[]
   group: string
+}
+
+// ─── AI 可读摘要生成 ──────────────────────────────────────────────────────────
+
+function resolveParamType(param: ApiDetailParametersQuery): string {
+  try { return buildParameters(param) } catch { return 'any' }
+}
+
+function schemaPropsToSummary(properties: Record<string, any>, required: string[] = []): any[] {
+  return Object.entries(properties || {}).map(([key, prop]: [string, any]) => ({
+    name: key,
+    type: prop.type || (prop.$ref ? '$ref' : 'any'),
+    required: required.includes(key),
+    description: prop.title || prop.description || '',
+  }))
+}
+
+function buildApiSummary(detail: Partial<ApiDetailListData>) {
+  const method = (detail.method || 'GET').toUpperCase()
+  const apiPath = detail.path || ''
+  const fnName = `${method.toLowerCase()}${convertPathToPascalCase(apiPath)}`
+
+  // query params
+  const queryParams = (detail.parameters?.query || []).filter((p: any) => p.enable !== false)
+  const pathParams = (detail.parameters?.path || []).filter((p: any) => p.enable !== false)
+
+  // body
+  const rb = detail.requestBody
+  let body: any = null
+  if (rb?.jsonSchema?.properties) {
+    body = {
+      type: 'json',
+      fields: schemaPropsToSummary(rb.jsonSchema.properties, rb.jsonSchema.required || []),
+    }
+  } else if ((rb?.parameters || []).length) {
+    body = {
+      type: rb?.type || 'form',
+      fields: (rb!.parameters as any[]).map((p: any) => ({
+        name: p.name,
+        type: resolveParamType(p),
+        required: p.required,
+        description: p.description || '',
+      })),
+    }
+  }
+
+  // response 200
+  const res200 = (detail.responses || []).find((r: any) => +r.code === 200)
+  const responseSchema = res200?.jsonSchema
+    ? (() => {
+        const props = res200.jsonSchema?.properties
+        return props ? schemaPropsToSummary(props, res200.jsonSchema.required || []) : res200.jsonSchema?.type || 'any'
+      })()
+    : null
+
+  return {
+    functionName: fnName,
+    method,
+    path: apiPath,
+    description: detail.name || '',
+    pathParams: pathParams.map((p: any) => ({ name: p.name, type: resolveParamType(p), required: p.required, description: p.description || '' })),
+    queryParams: queryParams.map((p: any) => ({ name: p.name, type: resolveParamType(p), required: p.required, description: p.description || '' })),
+    body,
+    response200: responseSchema,
+  }
 }
 
 interface GroupNode {
@@ -133,12 +199,19 @@ export async function runQuery(
   }
 
   if (options.json) {
-    // AI 友好：输出完整 JSON
-    const withDetails = limited.map((api) => {
-      const detail = (detailList as ApiDetailListData[]).find((d) => d.id === api.id) || {}
-      return { ...api, detail }
+    // AI 友好：输出摘要（函数签名+入参+响应）而非原始冗余 detail
+    const withSummary = limited.map((api) => {
+      const detail = (detailList as ApiDetailListData[]).find((d) => d.id === api.id)
+      return {
+        id: api.id,
+        name: api.name,
+        method: api.method,
+        path: api.path,
+        group: api.group,
+        summary: detail ? buildApiSummary(detail) : null,
+      }
     })
-    console.log(JSON.stringify(withDetails, null, 2))
+    console.log(JSON.stringify(withSummary, null, 2))
     return
   }
 
