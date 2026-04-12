@@ -3,7 +3,7 @@ name: Publish npm packages
 on:
   push:
     tags:
-      - 'cli-*'     # CLI 版本发布（如 cli-1.0.0）
+      - 'cli-*'
 
 permissions:
   contents: read
@@ -24,16 +24,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Install dependencies
-        run: pnpm install
+      - name: Install dependencies (skip husky)
+        run: pnpm install --ignore-scripts
 
-      - name: Build packages
-        run: |
-          pnpm -F @zhangheteng/aag-cli run build
-          pnpm -F @zhangheteng/aag-core run build
+      - name: Build @zhangheteng/aag-core
+        run: pnpm -F @zhangheteng/aag-core run build
+
+      - name: Build @zhangheteng/aag-cli
+        run: pnpm -F @zhangheteng/aag-cli run build
 
       - name: Publish @zhangheteng/aag-core
         run: node scripts/pre-publish.js packages/core "npm publish --access public --no-git-checks"
