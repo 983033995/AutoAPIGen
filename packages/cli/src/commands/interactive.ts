@@ -157,14 +157,13 @@ async function browseFolder(
       chalk.dim(`─── 位置：${renderBreadcrumb(stack)}  已选 ${chalk.cyan(selectedCount)} 个 ───`)
     ))
 
+    if (selectedCount > 0) {
+      choices.push({ name: chalk.bgGreen.black(` ✓ 确认生成 ${selectedCount} 个接口 → 直接回车 `), value: ACTION_CONFIRM })
+    }
     if (stack.length > 0) {
       choices.push({ name: chalk.dim('← 返回上级'), value: ACTION_BACK })
     }
     choices.push({ name: chalk.magenta('🔍 全局搜索接口'), value: ACTION_SEARCH })
-
-    if (selectedCount > 0) {
-      choices.push({ name: chalk.green(`✓ 确认生成（${selectedCount} 个接口）`), value: ACTION_CONFIRM })
-    }
 
     // 子文件夹区
     if (folders.length > 0) {
@@ -309,9 +308,10 @@ export async function runInteractive(
 ): Promise<void> {
   const projectId = config.projectId[config.projectId.length - 1]
   const cwd = process.cwd()
+  const configPath = (config.path || 'src/services').replace(/^\//, '')
   const outputBase = output
     ? path.resolve(cwd, output)
-    : path.resolve(cwd, config.path || 'src/services')
+    : path.resolve(cwd, configPath)
 
   // ── 1. 拉取数据 ──
   const spinner = ora('连接 Apifox，获取接口数据...').start()
