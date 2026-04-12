@@ -1,7 +1,8 @@
 <!-- gitnexus:start -->
+
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **AutoAPIGen** (422 symbols, 1099 relationships, 32 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **AutoAPIGen** (424 symbols, 1103 relationships, 32 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -35,35 +36,36 @@ This project is indexed by GitNexus as **AutoAPIGen** (422 symbols, 1099 relatio
 
 ## Tools Quick Reference
 
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
+| Tool             | When to use                   | Command                                                                 |
+| ---------------- | ----------------------------- | ----------------------------------------------------------------------- |
+| `query`          | Find code by concept          | `gitnexus_query({query: "auth validation"})`                            |
+| `context`        | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})`                              |
+| `impact`         | Blast radius before editing   | `gitnexus_impact({target: "X", direction: "upstream"})`                 |
+| `detect_changes` | Pre-commit scope check        | `gitnexus_detect_changes({scope: "staged"})`                            |
+| `rename`         | Safe multi-file rename        | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
+| `cypher`         | Custom graph queries          | `gitnexus_cypher({query: "MATCH ..."})`                                 |
 
 ## Impact Risk Levels
 
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK — direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED — indirect deps | Should test |
-| d=3 | MAY NEED TESTING — transitive | Test if critical path |
+| Depth | Meaning                               | Action                |
+| ----- | ------------------------------------- | --------------------- |
+| d=1   | WILL BREAK — direct callers/importers | MUST update these     |
+| d=2   | LIKELY AFFECTED — indirect deps       | Should test           |
+| d=3   | MAY NEED TESTING — transitive         | Test if critical path |
 
 ## Resources
 
-| Resource | Use for |
-|----------|---------|
-| `gitnexus://repo/AutoAPIGen/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/AutoAPIGen/clusters` | All functional areas |
-| `gitnexus://repo/AutoAPIGen/processes` | All execution flows |
-| `gitnexus://repo/AutoAPIGen/process/{name}` | Step-by-step execution trace |
+| Resource                                    | Use for                                  |
+| ------------------------------------------- | ---------------------------------------- |
+| `gitnexus://repo/AutoAPIGen/context`        | Codebase overview, check index freshness |
+| `gitnexus://repo/AutoAPIGen/clusters`       | All functional areas                     |
+| `gitnexus://repo/AutoAPIGen/processes`      | All execution flows                      |
+| `gitnexus://repo/AutoAPIGen/process/{name}` | Step-by-step execution trace             |
 
 ## Self-Check Before Finishing
 
 Before completing any code modification task, verify:
+
 1. `gitnexus_impact` was run for all modified symbols
 2. No HIGH/CRITICAL risk warnings were ignored
 3. `gitnexus_detect_changes()` confirms changes match expected scope
@@ -124,25 +126,25 @@ AutoAPIGen/
 
 ## 模块职责（对应 GitNexus clusters）
 
-| Cluster | 核心文件 | 职责 |
-|---------|----------|------|
-| **Create** | `src/core/create/index.ts` | 生成 apifox.ts / interface.ts 到磁盘 |
-| **Generator** | `packages/cli/src/generator/codeGen.ts` | 模板渲染、类型推导、参数序列化 |
-| **Http** | `src/core/messenger.ts` | API 请求（Apifox）、WebView 通信 |
-| **Template** | `src/core/create/template*.ts` | 代码模板字符串构建 |
-| **Commands** | `packages/cli/src/commands/` | CLI 子命令实现 |
-| **Webview** | `src/core/webview/` | WebView UI 加载与交互 |
-| **Workspace** | `src/core/workspace/` + `src/extension.ts` | VSCode 生命周期、状态管理 |
+| Cluster       | 核心文件                                   | 职责                                 |
+| ------------- | ------------------------------------------ | ------------------------------------ |
+| **Create**    | `src/core/create/index.ts`                 | 生成 apifox.ts / interface.ts 到磁盘 |
+| **Generator** | `packages/cli/src/generator/codeGen.ts`    | 模板渲染、类型推导、参数序列化       |
+| **Http**      | `src/core/messenger.ts`                    | API 请求（Apifox）、WebView 通信     |
+| **Template**  | `src/core/create/template*.ts`             | 代码模板字符串构建                   |
+| **Commands**  | `packages/cli/src/commands/`               | CLI 子命令实现                       |
+| **Webview**   | `src/core/webview/`                        | WebView UI 加载与交互                |
+| **Workspace** | `src/core/workspace/` + `src/extension.ts` | VSCode 生命周期、状态管理            |
 
 ## 关键执行流（修改前必须用 GitNexus 查询）
 
-| 流程 | 触发点 | Clusters |
-|------|--------|----------|
-| `RunGenerate → BuildTypeExtension` | `aag generate <id>` | Commands → Generator |
-| `GenerateFile → IsSchema` | 文件写入时类型判断 | Create → Generator |
-| `GenerateApiFiles → NameFormatter` | 批量生成接口文件 | Create → Generator |
-| `ReceiveMessages → GetModelOptions` | WebView 初始化配置 | Http → Workspace |
-| `BuildMethodTemplate → IsSchema` | 构建方法签名 | Generator → Create |
+| 流程                                | 触发点              | Clusters             |
+| ----------------------------------- | ------------------- | -------------------- |
+| `RunGenerate → BuildTypeExtension`  | `aag generate <id>` | Commands → Generator |
+| `GenerateFile → IsSchema`           | 文件写入时类型判断  | Create → Generator   |
+| `GenerateApiFiles → NameFormatter`  | 批量生成接口文件    | Create → Generator   |
+| `ReceiveMessages → GetModelOptions` | WebView 初始化配置  | Http → Workspace     |
+| `BuildMethodTemplate → IsSchema`    | 构建方法签名        | Generator → Create   |
 
 ## 编码规范（强制）
 

@@ -156,7 +156,7 @@ importers:
 
   packages/cli:
     dependencies:
-      '@auto-api-gen/core':
+      '@zhangheteng/aag-core':
         specifier: workspace:*
         version: link:../core
       chalk:

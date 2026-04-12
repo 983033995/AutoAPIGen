@@ -1,5 +1,6 @@
 {
   "name": "AutoAPIGen",
+  "private": true,
   "displayName": "AutoAPIGen",
   "description": "Automatically generate API functions to improve development efficiency. Supports TypeScript typing, processing queries and path parameters, and integrates with Axios for seamless API requests. Ideal for developers to save time and avoid duplicate API boilerplate code.",
   "version": "1.3.0",
@@ -27,7 +28,10 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "prepare": "husky"
+    "prepare": "husky",
+    "cli:build": "pnpm -F @auto-api-gen/cli run build",
+    "cli:publish": "pnpm install && pnpm -F @zhangheteng/aag-cli run build && pnpm -F @zhangheteng/aag-core run build && node scripts/pre-publish.js packages/core \"pnpm publish --access public --no-git-checks\" && node scripts/pre-publish.js packages/cli \"pnpm publish --access public --no-git-checks\"",
+    "cli:login": "npm adduser"
   },
   "lint-staged": {
     "*.{ts,vue}": [

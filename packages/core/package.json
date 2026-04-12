@@ -1,6 +1,7 @@
 {
-  "name": "@auto-api-gen/core",
-  "version": "1.0.0",
+  "name": "@zhangheteng/aag-core",
+  "version": "0.1.0",
+  "private": false,
   "description": "Core logic for AutoAPIGen — HTTP requests, code generation utilities (no VSCode dependency)",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -1,18 +1,25 @@
 {
-  "name": "auto-api-gen-cli",
+  "name": "@zhangheteng/aag-cli",
   "version": "1.0.0",
   "description": "CLI tool for AutoAPIGen — query Apifox APIs and generate TypeScript code from .vscode/autoApiGen.json",
   "main": "./dist/index.js",
   "bin": {
     "aag": "./dist/bin/cli.js"
   },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "author": "983033995",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "start": "node dist/bin/cli.js"
   },
   "dependencies": {
-    "@auto-api-gen/core": "workspace:*",
+    "@zhangheteng/aag-core": "workspace:*",
     "commander": "^12.1.0",
     "chalk": "^4.1.2",
     "ora": "^5.4.1",
@@ -27,6 +34,12 @@
     "@types/inquirer": "^8.2.10",
     "@types/fs-extra": "^11.0.4"
   },
-  "keywords": ["apifox", "api", "codegen", "typescript", "cli"],
+  "keywords": [
+    "apifox",
+    "api",
+    "codegen",
+    "typescript",
+    "cli"
+  ],
   "license": "MIT"
 }
