@@ -1,6 +1,6 @@
 /*
  * @FilePath: /AutoAPIGen/src/core/messenger.ts
- * @Description: 
+ * @Description:
  */
 /// <reference path="../global.d.ts" />
 import * as vscode from "vscode";
@@ -9,13 +9,12 @@ import {
   getText,
   getCurrentWorkspaceStructure,
   updateFileContent,
-  withProgressWrapper,
   findSubtreePath,
   getPathsAndApiDetails,
   replacePathAlias,
   revealSymbol,
   addImportSymbol,
-  cnToPinyin
+  cnToPinyin,
 } from "./helpers/helper";
 import { SETTING_FILE_URL } from "../constant/index";
 import {
@@ -24,13 +23,13 @@ import {
   getApiDetailList,
   getApiTreeList,
   getDataSchemas,
-  getProjectMembers
+  getProjectMembers,
 } from "./http/data";
 import { getWorkspaceStateUtil } from "./workspace/stateManager";
 import { generateFile } from "../core/create/index";
 import { FeedbackHelper } from "./helpers/feedbackHelper";
-import * as utils from './create/utils'
-import nodePath from 'path'
+import * as utils from "./create/utils";
+import nodePath from "path";
 
 const workspaceFolders = vscode.workspace.workspaceFolders || [];
 
@@ -44,78 +43,98 @@ const webviewCollection: Record<
 };
 
 const setProjectMembers = async () => {
-  const settingData = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data
-  const configInfo = settingData?.configInfo
-  const projectIds = configInfo?.projectId
-  const UserProjects = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
-  const project = UserProjects.find((item: Record<string, any>) => item.id === projectIds[projectIds.length - 1])
-  let projectMembers: ProjectMember[] | [] = []
+  const settingData = getWorkspaceStateUtil().get("AutoApiGen.setting")?.data;
+  const configInfo = settingData?.configInfo;
+  const projectIds = configInfo?.projectId;
+  const UserProjects =
+    getWorkspaceStateUtil().get("AutoApiGen.UserProjects")?.data || [];
+  const project = UserProjects.find(
+    (item: Record<string, any>) =>
+      item.id === projectIds[projectIds.length - 1],
+  );
+  let projectMembers: ProjectMember[] | [] = [];
   if (project && configInfo) {
     try {
       // 重新初始化 HTTP 实例以使用当前的授权配置
       // 确保 projectId 是当前项目的 ID
-      const currentProjectId = projectIds[projectIds.length - 1]
+      const currentProjectId = projectIds[projectIds.length - 1];
       await initHttp(configInfo.appName, {
         projectId: currentProjectId,
         Authorization: configInfo.Authorization,
         Cookie: configInfo.Cookie,
       });
-      projectMembers = await getProjectMembers(project.teamId)
+      projectMembers = await getProjectMembers(project.teamId);
     } catch (error) {
-      console.error('获取项目成员失败', error)
+      console.error("获取项目成员失败", error);
     }
   }
-  getWorkspaceStateUtil().set('AutoApiGen.ProjectMembers', {
+  getWorkspaceStateUtil().set("AutoApiGen.ProjectMembers", {
     updateTime: Date.now(),
-    data: projectMembers || []
-  })
-}
+    data: projectMembers || [],
+  });
+};
 
 const getApiInfo = (key: string) => {
   const apiTreeList =
-    getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data ||
-    [];
+    getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data || [];
   const treeNode = findSubtreePath(apiTreeList, key);
   const configInfo =
-    getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
-      ?.configInfo || {};
-  const filePathList = getPathsAndApiDetails(
-    treeNode,
-    key,
-    configInfo.appName
-  );
-  const setting: ConfigurationInformation = getWorkspaceStateUtil().get('AutoApiGen.setting')?.data || {}
-  const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath
-  const { path: relativePath, api } = filePathList[0]
-  let projectName = ''
+    getWorkspaceStateUtil().get("AutoApiGen.setting")?.data?.configInfo || {};
+  const filePathList = getPathsAndApiDetails(treeNode, key, configInfo.appName);
+  const setting: ConfigurationInformation =
+    getWorkspaceStateUtil().get("AutoApiGen.setting")?.data || {};
+  const workspaceFoldersPath = setting.workspaceFolders[0].uri.fsPath;
+  const { path: relativePath, api } = filePathList[0];
+  let projectName = "";
   if (setting.configInfo?.useProjectName) {
-    const projectList = getWorkspaceStateUtil().get('AutoApiGen.UserProjects')?.data || []
-    console.log('------>projectList', projectList)
-    const projectIds = setting.configInfo.projectId || []
-    projectName = projectList.find((project: Record<string, any>) => project.id === projectIds[projectIds.length - 1])?.name || ''
+    const projectList =
+      getWorkspaceStateUtil().get("AutoApiGen.UserProjects")?.data || [];
+    console.log("------>projectList", projectList);
+    const projectIds = setting.configInfo.projectId || [];
+    projectName =
+      projectList.find(
+        (project: Record<string, any>) =>
+          project.id === projectIds[projectIds.length - 1],
+      )?.name || "";
   }
   // `${workspaceFoldersPath}${setting.configInfo.path}/${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`
-  const commonPath = nodePath.join(workspaceFoldersPath, setting.configInfo.path || '', `${projectName ? relativePath.replace(setting.configInfo.appName || '', `${setting.configInfo.appName || ''}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`)
-  const apiFunctionPath = vscode.Uri.file(nodePath.join(commonPath, `${setting.configInfo.appName}.ts`))
-  const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`
-  const apiInterfacePath = vscode.Uri.file(nodePath.join(commonPath, `interface.ts`))
-  let importFunctionPath = apiFunctionPath.path
-  let importInterfacePath = apiInterfacePath.path
+  const commonPath = nodePath.join(
+    workspaceFoldersPath,
+    setting.configInfo.path || "",
+    `${projectName ? relativePath.replace(setting.configInfo.appName || "", `${setting.configInfo.appName || ""}/${utils.convertPathToPascalCase(cnToPinyin(projectName)).trim()}`) : relativePath}`,
+  );
+  const apiFunctionPath = vscode.Uri.file(
+    nodePath.join(commonPath, `${setting.configInfo.appName}.ts`),
+  );
+  const apiFunctionName = `${api[0].method}${utils.convertPathToPascalCase(api[0].path)}`;
+  const apiInterfacePath = vscode.Uri.file(
+    nodePath.join(commonPath, `interface.ts`),
+  );
+  let importFunctionPath = apiFunctionPath.path;
+  let importInterfacePath = apiInterfacePath.path;
   if (configInfo.alias) {
-    const target = configInfo.alias.split(/[:：]/).map((item: string) => item.trim())
-    importFunctionPath = replacePathAlias(apiFunctionPath.path, target)
-    importInterfacePath = replacePathAlias(apiInterfacePath.path, target)
+    const target = configInfo.alias
+      .split(/[:：]/)
+      .map((item: string) => item.trim());
+    importFunctionPath = replacePathAlias(apiFunctionPath.path, target);
+    importInterfacePath = replacePathAlias(apiInterfacePath.path, target);
   } else {
     const editor = vscode.window.activeTextEditor;
 
     if (editor) {
       const filePath = editor.document.uri.fsPath;
-      importFunctionPath = utils.getRelativeImportPath(filePath, apiFunctionPath.path);
-      importInterfacePath = utils.getRelativeImportPath(filePath, apiInterfacePath.path);
+      importFunctionPath = utils.getRelativeImportPath(
+        filePath,
+        apiFunctionPath.path,
+      );
+      importInterfacePath = utils.getRelativeImportPath(
+        filePath,
+        apiInterfacePath.path,
+      );
     }
   }
-  const importFunctionStr = `import { ${apiFunctionName} } from '${importFunctionPath}';`
-  
+  const importFunctionStr = `import { ${apiFunctionName} } from '${importFunctionPath}';`;
+
   return {
     apiFunctionPath,
     apiFunctionName,
@@ -126,8 +145,8 @@ const getApiInfo = (key: string) => {
     interfaceQueryName: `${apiFunctionName}Query`,
     interfaceBodyQueryName: `${apiFunctionName}Body`,
     interfaceResName: `${apiFunctionName}Res`,
-  }
-}
+  };
+};
 
 /**
  * 接收来自webview的消息
@@ -137,7 +156,7 @@ const getApiInfo = (key: string) => {
 const receiveMessages = (
   webview: vscode.Webview,
   context: vscode.ExtensionContext,
-  key: WebviewCollectionKey
+  key: WebviewCollectionKey,
 ) => {
   webview.onDidReceiveMessage(async (message: WebviewMessage) => {
     try {
@@ -146,7 +165,10 @@ const receiveMessages = (
       const handler: WebviewMessageCollection = {
         // 复制到剪贴板
         copyToClipboard: () => {
-          vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', data.text || '');
+          vscode.commands.executeCommand(
+            "AutoAPIGen.copyToClipboard",
+            data.text || "",
+          );
         },
         // 打开插件配置页
         openConfigPage: () => {
@@ -154,15 +176,15 @@ const receiveMessages = (
           vscode.commands.executeCommand(
             "AutoAPIGen.showConfigPagePanel",
             title,
-            configInfo
+            configInfo,
           );
         },
         // 初始化配置信息
         getWorkspaceState: async () => {
           await getWorkspaceState(webview, context, command, key, data.init);
-          setProjectMembers()
+          setProjectMembers();
         },
-        setWorkspaceState: () => { },
+        setWorkspaceState: () => {},
         // 获取当前工作区目录
         getFolders: async () => {
           const folders = await getCurrentWorkspaceStructure(10);
@@ -173,22 +195,31 @@ const receiveMessages = (
         },
         // 获取接口详情
         getApiDetail: async () => {
-          const apiDetailList: ApiDetailListData[] = getWorkspaceStateUtil().get('AutoApiGen.ApiDetailList')?.data || []
-          const apiID = data?.id || ''
-          const apiDetail = apiDetailList.find(item => item.id === apiID)
-          const projectMembers: ProjectMember[] | [] = getWorkspaceStateUtil().get('AutoApiGen.ProjectMembers')?.data || []
+          const apiDetailList: ApiDetailListData[] =
+            getWorkspaceStateUtil().get("AutoApiGen.ApiDetailList")?.data || [];
+          const apiID = data?.id || "";
+          const apiDetail = apiDetailList.find((item) => item.id === apiID);
+          const projectMembers: ProjectMember[] | [] =
+            getWorkspaceStateUtil().get("AutoApiGen.ProjectMembers")?.data ||
+            [];
           if (projectMembers.length && apiDetail) {
-            apiDetail.creatorName = projectMembers.find(item => item.userId === apiDetail.creatorId)?.nickname || ''
-            apiDetail.editorName = projectMembers.find(item => item.userId === apiDetail.editorId)?.nickname || ''
+            apiDetail.creatorName =
+              projectMembers.find((item) => item.userId === apiDetail.creatorId)
+                ?.nickname || "";
+            apiDetail.editorName =
+              projectMembers.find((item) => item.userId === apiDetail.editorId)
+                ?.nickname || "";
           }
-          const apiDataSchemas = getWorkspaceStateUtil().get('AutoApiGen.ApiDataSchemas')?.data || []
+          const apiDataSchemas =
+            getWorkspaceStateUtil().get("AutoApiGen.ApiDataSchemas")?.data ||
+            [];
           webview.postMessage({
             command: "setApiDetail",
             data: {
               ...apiDetail,
-              generateInfo: getApiInfo(`apiDetail.${apiDetail?.id || ''}`),
-              apiDataSchemas
-            }
+              generateInfo: getApiInfo(`apiDetail.${apiDetail?.id || ""}`),
+              apiDataSchemas,
+            },
           });
         },
         // 保存配置信息
@@ -211,9 +242,9 @@ const receiveMessages = (
               context,
               "getWorkspaceState",
               "BaseViewProvider",
-              true
+              true,
             );
-          } catch (error) {
+          } catch {
             webview.postMessage({
               command,
               data: {
@@ -222,7 +253,7 @@ const receiveMessages = (
               },
             });
           }
-          setProjectMembers()
+          setProjectMembers();
         },
         // 获取项目列表树形结构
         getProjectList: async () => {
@@ -246,8 +277,7 @@ const receiveMessages = (
           console.log("----->interfaceOperate", data);
           const { type, itemType, key } = data as InterfaceOperateData;
           const apiTreeList =
-            getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data ||
-            [];
+            getWorkspaceStateUtil().get("AutoApiGen.ApiTreeList")?.data || [];
           const treeNode = findSubtreePath(apiTreeList, key);
           const configInfo =
             getWorkspaceStateUtil().get("AutoApiGen.setting")?.data
@@ -255,7 +285,7 @@ const receiveMessages = (
           const filePathList = getPathsAndApiDetails(
             treeNode,
             key,
-            configInfo.appName
+            configInfo.appName,
           );
           console.log("----->treeNode", treeNode);
           console.log("----->filePathList", filePathList);
@@ -271,26 +301,34 @@ const receiveMessages = (
                     message: `已完成 ${process}%`,
                   });
                   await generateFile(filePathList, itemType, progress);
-                }
+                },
               );
             },
             copy: () => {
-              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', getApiInfo(key).apiFunctionName);
+              vscode.commands.executeCommand(
+                "AutoAPIGen.copyToClipboard",
+                getApiInfo(key).apiFunctionName,
+              );
             },
             copyImport: () => {
-              const { importFunctionStr } = getApiInfo(key)
-              vscode.commands.executeCommand('AutoAPIGen.copyToClipboard', importFunctionStr);
+              const { importFunctionStr } = getApiInfo(key);
+              vscode.commands.executeCommand(
+                "AutoAPIGen.copyToClipboard",
+                importFunctionStr,
+              );
             },
             jumpApiFunction: () => {
-              const { apiFunctionPath, apiFunctionName } = getApiInfo(key)
-              revealSymbol(apiFunctionPath.fsPath, apiFunctionName)
+              const { apiFunctionPath, apiFunctionName } = getApiInfo(key);
+              revealSymbol(apiFunctionPath.fsPath, apiFunctionName);
             },
             useQuickly: () => {
-              const { importFunctionPath, apiFunctionName } = getApiInfo(key)
-              addImportSymbol(apiFunctionName, importFunctionPath)
-            }
+              const { importFunctionPath, apiFunctionName } = getApiInfo(key);
+              addImportSymbol(apiFunctionName, importFunctionPath);
+            },
           };
-          handler[type] && (await handler[type]());
+          if (handler[type]) {
+            await handler[type]();
+          }
         },
         joinEnd: () => {
           webview.postMessage({
@@ -298,9 +336,20 @@ const receiveMessages = (
             data: true,
           });
         },
+        // 启用 AI 工具支持（打开文档页）
+        enableAISupport: () => {
+          vscode.commands.executeCommand("AutoAPIGen.enableAISupport");
+        },
+        // 打开外部链接
+        openUrl: () => {
+          const { url } = data;
+          if (url) {
+            vscode.env.openExternal(vscode.Uri.parse(url));
+          }
+        },
         // 显示接口详情
         showApiDetail: () => {
-          console.log('------->showApiDetail', data)
+          console.log("------->showApiDetail", data);
           const { name: title, api } = data;
           vscode.commands.executeCommand(
             "AutoAPIGen.showApiDetailPanel",
@@ -308,15 +357,17 @@ const receiveMessages = (
             {
               ...api,
               key: data.key,
-            }
+            },
           );
-        }
+        },
       };
 
-      handler[command] && (await handler[command]());
+      if (handler[command]) {
+        await handler[command]();
+      }
       handler.joinEnd();
-    } catch (error) {
-      console.error(`Error handling ${message.command}:`, error);
+    } catch (_err) {
+      console.error(`Error handling ${message.command}:`, _err);
       webview.postMessage({
         command: "error",
         data: { message: "处理消息时出错" },
@@ -331,10 +382,10 @@ const receiveMessages = (
  * @param webview vscode 的 Webview 对象
  */
 const sendMessages = (webview: vscode.Webview, key: WebviewCollectionKey) => {
-  console.log('------>sendMessages', key)
+  console.log("------>sendMessages", key);
   // 监听当前激活的文本编辑器变化，并发送消息到 webview
   vscode.window.onDidChangeActiveTextEditor(async (editor) => {
-    console.log('------>onDidChangeActiveTextEditor', key, editor)
+    console.log("------>onDidChangeActiveTextEditor", key, editor);
     if (!editor) return;
 
     const currentFile = editor.document.fileName;
@@ -344,7 +395,6 @@ const sendMessages = (webview: vscode.Webview, key: WebviewCollectionKey) => {
       text: currentFile,
     });
   });
-
 };
 
 /**
@@ -382,23 +432,26 @@ interface WorkspaceStateResult {
  */
 async function getWorkspaceState(
   webview: vscode.Webview,
-  context: vscode.ExtensionContext,
+  _context: vscode.ExtensionContext,
   command: string,
   key: WebviewCollectionKey,
-  isInit = false
+  isInit = false,
 ): Promise<void> {
   const sendStateToWebview = (result: WorkspaceStateResult): void => {
     webview.postMessage({
       command,
-      data: result
+      data: result,
     });
   };
 
   try {
-    const defaultSetting = getWorkspaceStateUtil().getWithDefault("AutoApiGen.setting", {
-      updateTime: Date.now(),
-      data: { language: "zh" }
-    })?.data;
+    const defaultSetting = getWorkspaceStateUtil().getWithDefault(
+      "AutoApiGen.setting",
+      {
+        updateTime: Date.now(),
+        data: { language: "zh" },
+      },
+    )?.data;
 
     let haveSetting = await checkFolderOrFileExists(SETTING_FILE_URL);
     let settingObj: ProjectConfigInfo = {};
@@ -406,20 +459,20 @@ async function getWorkspaceState(
     if (haveSetting) {
       const settingFileUrl = vscode.Uri.joinPath(
         workspaceFolders[0].uri,
-        SETTING_FILE_URL
+        SETTING_FILE_URL,
       );
       const settingFile = await getText(settingFileUrl);
       settingObj = settingFile ? JSON.parse(settingFile) : {};
 
-      const isValidConfig = (
+      const isValidConfig =
         (settingObj.Authorization || settingObj.Cookie) &&
         settingObj.appName &&
         Array.isArray(settingObj?.projectId) &&
-        (settingObj?.projectId?.length ?? 0) > 0
-      );
+        (settingObj?.projectId?.length ?? 0) > 0;
 
       if (isValidConfig) {
-        const projectId = settingObj?.projectId?.[settingObj?.projectId?.length - 1] ?? "";
+        const projectId =
+          settingObj?.projectId?.[settingObj?.projectId?.length - 1] ?? "";
         const appName = settingObj.appName as AppCollections;
         if (!appName) {
           throw new Error("appName is required");
@@ -427,13 +480,18 @@ async function getWorkspaceState(
         await initHttp(appName, {
           projectId,
           Authorization: settingObj.Authorization,
-          Cookie: settingObj.Cookie
+          Cookie: settingObj.Cookie,
         });
 
         const state = getWorkspaceStateUtil().getAll();
 
         if (key === "BaseViewProvider") {
-          await handleBaseViewProviderState(settingObj, state, +projectId, isInit);
+          await handleBaseViewProviderState(
+            settingObj,
+            state,
+            +projectId,
+            isInit,
+          );
         }
 
         await handleProjectListState(settingObj, state, isInit);
@@ -442,13 +500,13 @@ async function getWorkspaceState(
       }
     }
 
-    const { apiDetailList, apiProjectList, apiTreeList, ...rest } = settingObj;
+    const { ...rest } = settingObj;
     const result: ConfigurationInformation = {
       ...defaultSetting,
       workspaceFolders,
       haveSetting,
       configInfo: settingObj,
-      theme: vscode.window.activeColorTheme
+      theme: vscode.window.activeColorTheme,
     };
 
     getWorkspaceStateUtil().set("AutoApiGen.setting", {
@@ -458,8 +516,8 @@ async function getWorkspaceState(
         workspaceFolders,
         haveSetting,
         theme: vscode.window.activeColorTheme,
-        configInfo: rest
-      }
+        configInfo: rest,
+      },
     });
 
     sendStateToWebview(result);
@@ -467,7 +525,7 @@ async function getWorkspaceState(
     console.error("getWorkspaceState:", error);
     sendStateToWebview({
       haveSetting: false,
-      theme: vscode.window.activeColorTheme
+      theme: vscode.window.activeColorTheme,
     });
     vscode.window.showErrorMessage("获取工作区状态失败");
   }
@@ -477,11 +535,17 @@ async function handleBaseViewProviderState(
   settingObj: ProjectConfigInfo,
   state: WorkspaceState,
   projectId: number,
-  isInit: boolean
+  isInit: boolean,
 ): Promise<void> {
-  const detailListHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiDetailList");
-  const treeListHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiTreeList");
-  const dataSchemasHas = getWorkspaceStateUtil().hasActive("AutoApiGen.ApiDataSchemas");
+  const detailListHas = getWorkspaceStateUtil().hasActive(
+    "AutoApiGen.ApiDetailList",
+  );
+  const treeListHas = getWorkspaceStateUtil().hasActive(
+    "AutoApiGen.ApiTreeList",
+  );
+  const dataSchemasHas = getWorkspaceStateUtil().hasActive(
+    "AutoApiGen.ApiDataSchemas",
+  );
 
   if (!isInit && detailListHas && treeListHas && dataSchemasHas) {
     settingObj.apiDetailList = state["AutoApiGen.ApiDetailList"]?.data;
@@ -490,24 +554,24 @@ async function handleBaseViewProviderState(
     const [apiTreeList, apiDetail, apiDataSchemas] = await Promise.all([
       getApiTreeList(projectId),
       getApiDetailList(),
-      getDataSchemas(projectId)
+      getDataSchemas(projectId),
     ]);
 
     getWorkspaceStateUtil().set("AutoApiGen.ApiTreeList", {
       updateTime: Date.now(),
-      data: apiTreeList || []
+      data: apiTreeList || [],
     });
     settingObj.apiTreeList = apiTreeList;
 
     getWorkspaceStateUtil().set("AutoApiGen.ApiDetailList", {
       updateTime: Date.now(),
-      data: apiDetail || []
+      data: apiDetail || [],
     });
     settingObj.apiDetailList = apiDetail;
 
     getWorkspaceStateUtil().set("AutoApiGen.ApiDataSchemas", {
       updateTime: Date.now(),
-      data: apiDataSchemas || []
+      data: apiDataSchemas || [],
     });
     // settingObj.apiDataSchemas = apiDataSchemas;
   }
@@ -516,16 +580,19 @@ async function handleBaseViewProviderState(
 async function handleProjectListState(
   settingObj: ProjectConfigInfo,
   state: WorkspaceState,
-  isInit: boolean
+  isInit: boolean,
 ): Promise<void> {
-  if (!isInit && getWorkspaceStateUtil().hasActive("AutoApiGen.ApiProjectList")) {
+  if (
+    !isInit &&
+    getWorkspaceStateUtil().hasActive("AutoApiGen.ApiProjectList")
+  ) {
     settingObj.apiProjectList = state["AutoApiGen.ApiProjectList"]?.data;
   } else {
     const projectList = await getProjectList();
     settingObj.apiProjectList = projectList;
     getWorkspaceStateUtil().set("AutoApiGen.ApiProjectList", {
       updateTime: Date.now(),
-      data: projectList || []
+      data: projectList || [],
     });
   }
 }

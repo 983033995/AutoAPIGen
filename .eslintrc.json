@@ -9,16 +9,18 @@
   "rules": {
     "vue/multi-word-component-names": "off",
     "vue/v-on-event-hyphenation": "off",
-    "@typescript-eslint/quotes": [
+    "@typescript-eslint/triple-slash-reference": "off",
+    "@typescript-eslint/no-unused-vars": [
       "error",
-      "single",
-      {
-        "allowTemplateLiterals": true
-      }
+      { "argsIgnorePattern": "^_" }
     ],
-    "object-curly-spacing": ["error", "always"],
-    "semi": ["error", "never"],
-    "indent": ["error", "tab"]
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unused-expressions": "off",
+    "no-undef": "off",
+    "no-mixed-spaces-and-tabs": "off",
+    "semi": "off",
+    "object-curly-spacing": "off",
+    "prefer-const": "off"
   },
   "parser": "vue-eslint-parser",
   "parserOptions": {

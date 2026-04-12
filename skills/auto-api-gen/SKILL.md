@@ -1,18 +1,99 @@
-# AutoAPIGen — API 查询与代码生成技能
+---
+name: auto-api-gen
+description: 使用 AutoAPIGen 的 `aag` CLI 在已配置 `.vscode/autoApiGen.json` 的项目里查询 Apifox 接口并生成 TypeScript 服务代码。只要用户提到接口、API、Apifox、服务层、生成接口、调用某个接口、查看接口参数或返回值、批量生成接口、根据接口写请求代码，甚至只是说“帮我接一下这个接口”“帮我找店铺列表接口”“看看这个接口怎么调”时，都应该使用这个技能。尤其当任务需要先判断本地是否已有 `apifox.ts` / `interface.ts`，再决定是否查询或生成代码时，必须使用这个技能。
+---
 
-## 技能简介
+# AutoAPIGen
 
-本技能帮助 AI 工具（Claude、Cursor、Copilot 等）通过 `aag` CLI 工具，在任意项目目录下：
+## 这个技能解决什么问题
 
-1. **查询接口列表** — 按路径/名称/分组关键词搜索 Apifox 接口
-2. **生成 TypeScript 代码** — 根据接口 ID 或关键词，自动生成接口函数和类型定义
+这个技能让 AI 按 AutoAPIGen 的真实工作流来处理接口相关任务，而不是凭接口名猜参数或直接手写请求代码。
+
+它适合的任务包括：
+
+- 找某个接口在哪个分组
+- 看接口的 Query、Body、响应结构
+- 生成一个接口或一组接口
+- 读取已经生成好的 `apifox.ts` / `interface.ts`
+- 在业务代码里正确引用生成好的函数和类型
 
 ## 前提条件
 
-- 项目根目录存在 `.vscode/autoApiGen.json` 配置文件（通过 AutoAPIGen VSCode 插件配置）
-- 已安装 CLI：`npm install -g auto-api-gen-cli`（或通过插件的"启用 AI 工具支持"按钮自动安装）
+开始前先确认两件事：
 
-## 可用命令
+1. 当前项目根目录存在 `.vscode/autoApiGen.json`
+2. 当前环境已经安装 `aag` CLI
+
+如果配置文件不存在，先告诉用户需要在 VS Code 插件里完成 AutoAPIGen 配置。
+
+## 核心工作方式
+
+### 原则 1：先看本地，后查 CLI
+
+只要用户要调用、修改、理解某个接口，先检查本地是否已经存在生成结果。
+
+优先查找：
+
+```text
+<config.path>/<appName>/[<projectName(PascalCase)>/]<groupPath>/
+├── apifox.ts
+└── interface.ts
+```
+
+如果本地已经有对应文件：
+
+- 直接读取 `apifox.ts`
+- 直接读取 `interface.ts`
+- 用本地文件回答问题或继续写业务代码
+
+这样更快，也能避免重复生成和误判参数。
+
+### 原则 2：只有本地没有时，才调用 `aag`
+
+当本地不存在对应生成文件时，再根据任务选择 CLI 命令：
+
+- 想看分组结构：`aag groups`
+- 想让 AI 读取结构化接口摘要：`aag query <关键词> --json`
+- 想只拿某个分组的接口 ID：`aag query --group <分组名> --ids-only`
+- 想直接生成：`aag generate <ids...>`
+
+### 原则 3：生成后再读一次文件
+
+无论是单接口生成还是批量生成，生成完成后都要重新读取生成出来的 `apifox.ts` 和 `interface.ts`，再继续帮用户写调用代码。
+
+不要在生成完成前就假设：
+
+- 函数名一定是什么
+- Query / Body 类型一定是什么
+- 返回值一定是什么
+
+## 推荐决策流程
+
+```text
+用户提到某个接口
+      ↓
+先检查本地是否已有 apifox.ts / interface.ts
+      ↓
+有
+  → 直接读取本地文件并使用
+
+没有
+  → 先决定是看分组还是看接口摘要
+      ↓
+  需要看分组
+    → aag groups / aag groups --json
+
+  需要看参数和响应
+    → aag query <关键词> --json
+
+  已经知道目标接口 ID
+    → aag generate <id>
+
+  已经知道目标分组下的一组 ID
+    → aag generate <id1> <id2> ...
+```
+
+## 命令手册
 
 ### 1. 检查配置
 
@@ -20,241 +101,178 @@
 aag init
 ```
 
-验证当前项目的 AutoAPIGen 配置是否正确，输出 appName、projectId、path 等信息。
+用来确认当前项目配置是否可读，重点看：
 
-### 2. 查看分组结构（AI 首选）
+- `appName`
+- `projectId`
+- `path`
+
+### 2. 查看分组
 
 ```bash
-# 列出所有分组及其接口 ID（树状，人类可读）
 aag groups
-
-# 输出 JSON（AI 解析用，含完整树结构）
 aag groups --json
 ```
 
-**`aag groups` 输出示例：**
+何时使用：
 
-```
-分组列表（含接口 ID）：
-
-▶ bff
-  ▶ C端 (5个接口)  → IDs: 111 222 333 444 555
-    [111] POST    /bff/c-transaction/payment/pay
-    [222] POST    /bff/c-transaction/payment/paymentInfo
-    ...
-  ▶ B端 (3个接口)  → IDs: 666 777 888
-    ...
-```
-
-**`aag groups --json` 输出结构：**
-
-```json
-[
-  {
-    "group": "bff",
-    "apiCount": 0,
-    "apiIds": [],
-    "children": [
-      {
-        "group": "bff / C端 / 支付",
-        "apiCount": 5,
-        "apiIds": [111, 222, 333, 444, 555],
-        "apis": [{ "id": 111, "method": "POST", "path": "/bff/..." }],
-        "children": []
-      }
-    ]
-  }
-]
-```
+- 用户只知道业务分组，不知道接口名
+- 想整组生成一批接口
+- 需要先建立“这个接口属于哪个分组”的上下文
 
 ### 3. 查询接口
 
 ```bash
-# 查询所有接口
 aag query
-
-# 按关键词搜索（路径或名称）
 aag query <keyword>
-
-# 按分组过滤，只输出 ID（AI 直接拼接 generate 命令）
-aag query --group <groupName> --ids-only
-
-# 输出完整 JSON（包含接口详情，适合 AI 解析）
-aag query --json
 aag query <keyword> --json
-
-# 限制返回数量
+aag query --group <groupName> --ids-only
 aag query --limit 20
 ```
 
-**JSON 输出结构示例（`summary` 字段为 AI 可直接理解的结构化摘要）：**
+何时使用：
 
-```json
-[
-  {
-    "id": 123456,
-    "name": "用户支付",
-    "method": "POST",
-    "path": "/bff/c-transaction/payment/pay",
-    "group": "bff / C端 / 支付",
-    "summary": {
-      "functionName": "postBffCTransactionPaymentPay",
-      "method": "POST",
-      "path": "/bff/c-transaction/payment/pay",
-      "description": "用户支付",
-      "pathParams": [],
-      "queryParams": [],
-      "body": {
-        "type": "json",
-        "fields": [
-          { "name": "orderId", "type": "string", "required": true, "description": "订单ID" },
-          { "name": "amount", "type": "number", "required": true, "description": "支付金额" },
-          { "name": "payType", "type": "string", "required": false, "description": "支付方式" }
-        ]
-      },
-      "response200": [
-        { "name": "code", "type": "number", "required": true, "description": "" },
-        { "name": "data", "type": "object", "required": false, "description": "支付结果" }
-      ]
-    }
-  }
-]
-```
+- 用户给了接口关键词，如“支付”“店铺列表”“会话创建”
+- 需要知道 Query、Body、`response200`
+- 需要给 AI 一个结构化摘要，而不是原始冗长详情
 
 ### 4. 生成代码
 
 ```bash
-# 按接口 ID 生成（从 aag groups 或 aag query 结果获取 id）
 aag generate 123456
-
-# 生成某个分组的全部接口（将 aag groups 输出的 IDs 直接传入）
-aag generate 111 222 333 444 555
-
-# 按路径关键词生成
+aag generate 111 222 333 444
 aag generate /api/user
-
-# 生成全部接口
 aag generate --all
-
-# 指定输出目录
-aag generate 123456 --output src/services
-
-# 预览（不实际写入）
 aag generate 123456 --dry-run
 ```
 
-**生成文件结构（与插件完全一致）：**
+何时使用：
 
-```
-<config.path>/
-└── <appName>/[<projectName>/]<folder1>/<folder2>/
-    ├── apifox.ts      # 接口函数（axios/custom 模式）
-    └── interface.ts   # TypeScript 类型定义
-```
+- 已经知道目标接口 ID
+- 已经从分组结果里拿到一组接口 ID
+- 想预览生成落点时，用 `--dry-run`
 
-## AI 工具使用工作流
-
-### 🔑 核心原则：先看本地，再查远程
-
-**在使用任何接口之前，AI 必须先检查本地是否已有生成的接口文件。**
-
-生成的文件结构为：
-```
-<config.path>/<appName>/[<projectName>/]<分组路径>/
-├── apifox.ts      # 接口函数定义
-└── interface.ts   # TypeScript 类型定义
-```
-
-**决策流程：**
-
-```
-用户提到某个接口
-       │
-       ▼
-检查本地 config.path 目录下是否存在对应的 apifox.ts / interface.ts
-       │
-   ┌───┴───┐
-  存在      不存在
-   │          │
-   ▼          ▼
-直接读取    → 执行下方"生成工作流"
-本地文件
-直接使用
-```
-
-**本地文件已存在时**，直接读取 `apifox.ts` 和 `interface.ts` 即可获得：
-- 函数名、参数类型、返回类型（`interface.ts`）
-- 调用方式（`apifox.ts`）
-
-**无需再执行 `aag query`，节省时间。**
-
----
-
-### 生成工作流（本地文件不存在时）
-
-#### 场景一：生成指定分组下的所有接口（推荐）
+### 5. 交互式浏览
 
 ```bash
-# 步骤 1：查看分组结构，找到目标分组的接口 ID
-aag groups --json
+aag ui
+```
 
-# 步骤 2：从 JSON 中提取目标分组的 apiIds，直接生成
+这是给人用的交互式入口。只有当用户明确希望在终端里自己浏览树形结构时再用。
+
+默认情况下，AI 更应该优先使用非交互式命令。
+
+## 关键输出结构
+
+### `aag query --json` 最值得看的字段
+
+重点关注 `summary`：
+
+- `functionName`
+- `method`
+- `path`
+- `pathParams`
+- `queryParams`
+- `body`
+- `response200`
+
+这些字段足够让 AI 判断：
+
+- 生成出来的函数大概率叫什么
+- 调用时需要哪些参数
+- 返回值顶层结构是什么
+
+### 生成目录规则
+
+统一目录结构：
+
+```text
+<config.path>/<appName>/[<projectName(PascalCase)>/]<groupPath>/
+├── apifox.ts
+└── interface.ts
+```
+
+补充理解：
+
+- `appName` 一般是 `apifox`
+- `useProjectName: true` 时会插入项目名目录
+- 分组目录会按插件规则转换
+
+## 配置里最关键的字段
+
+`.vscode/autoApiGen.json` 里最值得关心的是：
+
+| 字段                  | 作用                           |
+| --------------------- | ------------------------------ |
+| `appName`             | 生成目录第一层名称             |
+| `projectId`           | 当前项目 ID                    |
+| `path`                | 生成代码的基础目录             |
+| `model`               | 代码模板，如 `axios`、`custom` |
+| `axiosPath`           | 自定义请求实例导入             |
+| `axiosReturnKey`      | 返回值解包字段                 |
+| `head`                | 文件头部导入                   |
+| `customReturn`        | 自定义请求函数模板             |
+| `customExtraFunction` | 自定义附加函数模板             |
+| `useProjectName`      | 是否在目录中插入项目名         |
+| `useProjectId`        | 是否在请求配置里带上项目 ID    |
+
+## 执行任务时的输出要求
+
+当你使用这个技能帮助用户时，尽量给出这些信息：
+
+1. **本次是直接复用本地文件，还是新生成的**
+2. **最终使用的函数名**
+3. **关键参数类型来源于哪里**
+4. **生成文件或读取文件的路径**
+5. **如果做了假设，要明确说明**
+
+不要只说“我帮你接好了”，而不告诉用户你是基于本地现有文件，还是基于新生成文件完成的。
+
+## 示例
+
+### 示例 1：用户说“帮我调用店铺列表接口”
+
+处理顺序：
+
+1. 先检查本地是否已有相关目录，如 `.../dianPu/apifox.ts`
+2. 如果有，直接读本地文件
+3. 如果没有，执行：
+
+```bash
+aag query 店铺 --json
+```
+
+4. 确认接口后执行：
+
+```bash
+aag generate 324170228
+```
+
+5. 再读取生成后的文件，写最终调用代码
+
+### 示例 2：用户说“把支付分组整组生成”
+
+处理顺序：
+
+```bash
+aag groups --json
 aag generate 111 222 333 444 555
 ```
 
-#### 场景二：按关键词快速生成
+### 示例 3：用户说“看一下这个接口返回什么字段”
+
+优先选择：
 
 ```bash
-# 一行搞定：搜索 + 生成
-aag generate $(aag query 支付 --ids-only)
-```
-
-#### 场景三：需要先了解接口参数再决定是否生成
-
-```bash
-# 查询接口摘要（含函数签名、入参字段、响应结构）
 aag query <关键词> --json
-
-# 分析后生成
-aag generate <接口ID>
 ```
 
-## 典型示例
+如果本地已有 `interface.ts`，则直接读取 `interface.ts` 更快更准。
 
-**场景：用户要调用"支付"接口**
+## 不要这样做
 
-```bash
-# 步骤 1：先检查本地是否已有生成文件
-# 检查 <config.path>/apifox/.../zhiFu/apifox.ts 是否存在
-# → 存在：直接读取，无需任何 aag 命令
-# → 不存在：继续下面步骤
-
-# 步骤 2：生成该分组接口
-aag groups --json
-# 输出：[{ "group": "bff / C端 / 支付", "apiIds": [111,222,333,444,555], ... }]
-aag generate 111 222 333 444 555
-
-# 步骤 3：读取生成的文件直接使用
-```
-
-**场景：快速生成登录接口**
-
-```bash
-# 一行搞定：查询 ID 并生成
-aag generate $(aag query 登录 --ids-only)
-```
-
-## 配置文件说明
-
-`.vscode/autoApiGen.json` 关键字段：
-
-| 字段 | 说明 |
-|------|------|
-| `appName` | API 平台，如 `apifox`、`apipost` |
-| `projectId` | Apifox 项目 ID 数组 |
-| `path` | 生成代码的输出目录 |
-| `model` | 代码模板，如 `axios`、`custom` |
-| `axiosPath` | 自定义 axios 导入语句 |
-| `axiosReturnKey` | 响应数据提取键（如 `data`） |
-| `head` | 自定义文件头部导入语句 |
-| `customReturn` | 自定义函数模板（JS 代码字符串） |
+- 不要在本地已有生成文件时还重复执行 `aag query`
+- 不要只凭接口名称猜函数名和参数结构
+- 不要生成完代码却不回读生成文件
+- 不要在用户没有要求的情况下直接 `aag generate --all`
+- 不要默认使用 `aag ui` 代替结构化命令

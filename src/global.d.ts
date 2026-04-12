@@ -1,6 +1,6 @@
 /*
  * @FilePath: /AutoAPIGen/src/global.d.ts
- * @Description: 
+ * @Description:
  */
 
 type VSCode = {
@@ -22,182 +22,228 @@ interface Window {
   loadMonacoEditor?: () => Promise<any>;
 }
 
-type ApiType = 'get' | 'post' | 'put' | 'delete' | 'patch' | 'head' | 'options' | 'trace'
+type ApiType =
+  | "get"
+  | "post"
+  | "put"
+  | "delete"
+  | "patch"
+  | "head"
+  | "options"
+  | "trace";
 
-type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never
+type Expand<T> = T extends infer O ? { [K in keyof O]: O[K] } : never;
 
-type AppCollections = 'apifox' | 'postman' | 'apipost'
+type AppCollections = "apifox" | "postman" | "apipost";
 
-type WebviewMessageKey = 'getWorkspaceState' | 'setWorkspaceState' | 'openConfigPage' | 'getFolders' | 'saveConfig' | 'getProjectList' | 'interfaceOperate' | 'joinEnd' | 'showApiDetail' | 'getApiDetail' | 'copyToClipboard'
+type WebviewMessageKey =
+  | "getWorkspaceState"
+  | "setWorkspaceState"
+  | "openConfigPage"
+  | "getFolders"
+  | "saveConfig"
+  | "getProjectList"
+  | "interfaceOperate"
+  | "joinEnd"
+  | "showApiDetail"
+  | "getApiDetail"
+  | "copyToClipboard"
+  | "enableAISupport"
+  | "openUrl";
 
-type WebviewMessageCollection = Record<WebviewMessageKey, (...args: any[]) => any>
+type WebviewMessageCollection = Record<
+  WebviewMessageKey,
+  (...args: any[]) => any
+>;
 
 type WebviewMessage = {
-  command: WebviewMessageKey
-  data: Record<string, any>
-}
-
+  command: WebviewMessageKey;
+  data: Record<string, any>;
+};
 
 interface ConfigurationInformation {
-  language: string
-  haveSetting: boolean
-  workspaceFolders: readonly vscode.WorkspaceFolder[]
-  theme: vscode.ColorTheme
-  configInfo: ProjectConfigInfo
+  language: string;
+  haveSetting: boolean;
+  workspaceFolders: readonly vscode.WorkspaceFolder[];
+  theme: vscode.ColorTheme;
+  configInfo: ProjectConfigInfo;
 }
 
-type generateConfigPageParams = (currentPanel: vscode.WebviewPanel | undefined, title: string, configInfo: ProjectConfigInfo) => void
+type generateConfigPageParams = (
+  currentPanel: vscode.WebviewPanel | undefined,
+  title: string,
+  configInfo: ProjectConfigInfo,
+) => void;
 
-type apiModelType = 'vueUse' | 'axios' | 'VueHookPlus' | 'wx' | 'custom'
+type apiModelType = "vueUse" | "axios" | "VueHookPlus" | "wx" | "custom";
 
 interface ConfigFromModel {
-  appName: AppCollections
-  Authorization: string
-  Cookie: string
-  path: string
-  projectId: number[]
-  model: apiModelType
-  prettierSetting: string
-  axiosPath?: string
-  head?: string
-  customReturn?: string
-  customExtraFunction?: string
-  axiosReturnKey?: string
-  alias?: string
-  useProjectName: boolean
+  appName: AppCollections;
+  Authorization: string;
+  Cookie: string;
+  path: string;
+  projectId: number[];
+  model: apiModelType;
+  prettierSetting: string;
+  axiosPath?: string;
+  head?: string;
+  customReturn?: string;
+  customExtraFunction?: string;
+  axiosReturnKey?: string;
+  alias?: string;
+  useProjectName: boolean;
 }
 
-type KeysType = Expand<keyof ConfigFromModel>
-
+type KeysType = Expand<keyof ConfigFromModel>;
 
 interface ProjectConfigInfo extends Partial<ConfigFromModel> {
-  apiDetailList?: ApiDetailListData[]
-  apiTreeList?: ApiTreeListResData[]
-  apiProjectList?: any[]
-  apiDataSchemas?: ApiDataSchemasItem[]
-  [key: string]: any
+  apiDetailList?: ApiDetailListData[];
+  apiTreeList?: ApiTreeListResData[];
+  apiProjectList?: any[];
+  apiDataSchemas?: ApiDataSchemasItem[];
+  [key: string]: any;
 }
 
 type DirectoryItem = {
-  name: string
-  type: 'file' | 'directory'
-  key: string
-  children?: DirectoryItem[]
+  name: string;
+  type: "file" | "directory";
+  key: string;
+  children?: DirectoryItem[];
 };
 
 type GetModelOptionsParams = {
-  appName: AppCollections,
-  branchId?: string,
-  [key: string]: any
-}
+  appName: AppCollections;
+  branchId?: string;
+  [key: string]: any;
+};
 
 type ApifoxResponse<T> = {
-  data: T
-  success: boolean
-}
+  data: T;
+  success: boolean;
+};
 interface AxiosReturn<T, D = ApifoxResponse<T>> {
-  config: AxiosRequestConfig
-  data: D
-  headers: Record<string, any>
-  request: ClientRequest
-  status: number
-  statusText: string
+  config: AxiosRequestConfig;
+  data: D;
+  headers: Record<string, any>;
+  request: ClientRequest;
+  status: number;
+  statusText: string;
 }
 
-type UserTeamsResData = Partial<{
-  description: string
-  id: number
-  name: string
-  organizationId: number
-  paymentMode: string
-  roleType: number
-}[]>
+type UserTeamsResData = Partial<
+  {
+    description: string;
+    id: number;
+    name: string;
+    organizationId: number;
+    paymentMode: string;
+    roleType: number;
+  }[]
+>;
 
-type UserProjectResData = Partial<{
-  categoryIds: any
-  id: number
-  description: string
-  icon: string
-  name: string
-  teamId: number
-  type: string
-  visibility: string
-  [key: string]: any
-}[]>
+type UserProjectResData = Partial<
+  {
+    categoryIds: any;
+    id: number;
+    description: string;
+    icon: string;
+    name: string;
+    teamId: number;
+    type: string;
+    visibility: string;
+    [key: string]: any;
+  }[]
+>;
 
 interface FolderItem {
-  docId: number
-  id: number
-  name: string
-  type: string
-  parentId: number
-  projectBranchId: number
+  docId: number;
+  id: number;
+  name: string;
+  type: string;
+  parentId: number;
+  projectBranchId: number;
 }
 
 interface apiDetailItem {
-  folderId: number
-  id: number
-  name: string
-  type: string
-  path: string
-  method: string
-  [key: string]: any
+  folderId: number;
+  id: number;
+  name: string;
+  type: string;
+  path: string;
+  method: string;
+  [key: string]: any;
 }
 
-type treeItemType = "apiDetailFolder" | "apiDetail"
+type treeItemType = "apiDetailFolder" | "apiDetail";
 
 type ApiTreeListResData = {
-  children: ApiTreeListResData[]
-  folder: FolderItem
-  key: string
-  name: string
-  type: treeItemType
-  api?: apiDetailItem
-}
+  children: ApiTreeListResData[];
+  folder: FolderItem;
+  key: string;
+  name: string;
+  type: treeItemType;
+  api?: apiDetailItem;
+};
 
-type WebviewCollectionKey = 'configPageProvider' | 'BaseViewProvider' | 'apiDetailPageProvider'
+type WebviewCollectionKey =
+  | "configPageProvider"
+  | "BaseViewProvider"
+  | "apiDetailPageProvider";
 
-type WebviewMessageCommand = 'openConfigPage' | 'getWorkspaceState' | 'setWorkspaceState' | 'getFolders' | 'saveConfig' | 'getProjectList'
+type WebviewMessageCommand =
+  | "openConfigPage"
+  | "getWorkspaceState"
+  | "setWorkspaceState"
+  | "getFolders"
+  | "saveConfig"
+  | "getProjectList";
 
 interface WebviewMessage {
-  command: WebviewMessageCommand
-  data: any
+  command: WebviewMessageCommand;
+  data: any;
 }
 
 type ApiTypeMap = {
-  [K in ApiType]: { class: string, color: string }
-}
+  [K in ApiType]: { class: string; color: string };
+};
 
 interface TreeNode {
   id: number;
   name: string;
   children?: TreeNode[];
-  [key: string]: any
+  [key: string]: any;
 }
 
 // 全部的空间缓存数据
-type WorkspaceStateKey = 'AutoApiGen.ApiProjectList' | 'AutoApiGen.ApiTreeList' | 'AutoApiGen.ApiDetailList' | 'AutoApiGen.setting' | 'AutoApiGen.ApiDataSchemas' | 'AutoApiGen.UserProjects' | 'AutoApiGen.ProjectMembers'
+type WorkspaceStateKey =
+  | "AutoApiGen.ApiProjectList"
+  | "AutoApiGen.ApiTreeList"
+  | "AutoApiGen.ApiDetailList"
+  | "AutoApiGen.setting"
+  | "AutoApiGen.ApiDataSchemas"
+  | "AutoApiGen.UserProjects"
+  | "AutoApiGen.ProjectMembers";
 type WorkspaceStateData = {
-  updateTime: number,
-  data: any
-}
+  updateTime: number;
+  data: any;
+};
 type WorkspaceState = {
-  [key in WorkspaceStateKey]?: WorkspaceStateData
-}
+  [key in WorkspaceStateKey]?: WorkspaceStateData;
+};
 
-type InterfaceHandlerType = 'generate' | 'copy'
+type InterfaceHandlerType = "generate" | "copy";
 
 type PathApiDetail = {
-  path: string
-  keyArr: string[]
-  pathArr: string[]
-  api: apiDetailItem[]
-}
+  path: string;
+  keyArr: string[];
+  pathArr: string[];
+  api: apiDetailItem[];
+};
 
 interface InterfaceOperateData {
-  type: InterfaceHandlerType
-  itemType: treeItemType,
-  key: string
+  type: InterfaceHandlerType;
+  itemType: treeItemType;
+  key: string;
 }
 
 interface ApiDetailResponseData {
@@ -264,11 +310,11 @@ interface ApiDetailParametersQuery {
   enable: boolean;
   schema?: {
     type?: string;
-    [key: string]: any
-  }
+    [key: string]: any;
+  };
   items: {
-    [key: string]: any
-  }
+    [key: string]: any;
+  };
   enum: any[];
 }
 interface ApiDetailParameters {
@@ -288,8 +334,8 @@ interface ApiDetailParameters {
 interface ApiDetailListData {
   id: number;
   name: string;
-  creatorName: string
-  editorName: string
+  creatorName: string;
+  editorName: string;
   type: string;
   serverId: string;
   preProcessors: any[]; // Replace with specific type if needed
@@ -309,7 +355,7 @@ interface ApiDetailListData {
     example?: string;
     examples?: {
       value: string;
-      [key: string]: any
+      [key: string]: any;
     }[];
     jsonSchema: {
       type: string;
@@ -319,16 +365,16 @@ interface ApiDetailListData {
           type: string;
           items: {
             type: string;
-            [key: string]: any
-          }
+            [key: string]: any;
+          };
           description?: string;
         };
-      }
+      };
       "x-apifox-orders"?: string[];
-      [key: string]: any
+      [key: string]: any;
     };
   };
-  parameters: ApiDetailParameters
+  parameters: ApiDetailParameters;
   commonParameters: {
     query: any[]; // Replace with specific type if needed
     body: any[]; // Replace with specific type if needed
@@ -428,47 +474,47 @@ interface ApiDataSchemasItem {
 }
 
 interface ApiDetailGather extends apiDetailItem {
-  apiFunctionName: string
-  useApiFunctionName: string
-  apiFunctionPath: vscode.Uri
-  apiFunctionContext: string
-  apiInterfaceContext: string
-  interfaceQueryName: string
-  interfaceResName: string
+  apiFunctionName: string;
+  useApiFunctionName: string;
+  apiFunctionPath: vscode.Uri;
+  apiFunctionContext: string;
+  apiInterfaceContext: string;
+  interfaceQueryName: string;
+  interfaceResName: string;
 }
-declare module 'prettier-plugin-organize-imports';
+declare module "prettier-plugin-organize-imports";
 
 interface ProjectMemberUser {
-  id: number
-  deletedAt: any
-  name: string
-  username: string
-  email: string
-  employeeNumber: any
-  bio: string
-  tokenRefreshVersion: number
-  deviceIds: any[]
-  webDeviceIds: any[]
-  allowDeviceCount: number
-  status: number
-  mobile: any
-  features: Record<string, any>
-  accessedAt: any
-  createdAt: string
-  updatedAt: string
-  avatar: string
+  id: number;
+  deletedAt: any;
+  name: string;
+  username: string;
+  email: string;
+  employeeNumber: any;
+  bio: string;
+  tokenRefreshVersion: number;
+  deviceIds: any[];
+  webDeviceIds: any[];
+  allowDeviceCount: number;
+  status: number;
+  mobile: any;
+  features: Record<string, any>;
+  accessedAt: any;
+  createdAt: string;
+  updatedAt: string;
+  avatar: string;
 }
 
 interface ProjectMember {
-  id: number
-  createdAt: string
-  updatedAt: string
-  teamId: number
-  userId: number
-  projectId: number
-  roleType: number
-  lastActiveTime: string
-  user: ProjectMemberUser
-  nickname: string
-  roleName: string
+  id: number;
+  createdAt: string;
+  updatedAt: string;
+  teamId: number;
+  userId: number;
+  projectId: number;
+  roleType: number;
+  lastActiveTime: string;
+  user: ProjectMemberUser;
+  nickname: string;
+  roleName: string;
 }

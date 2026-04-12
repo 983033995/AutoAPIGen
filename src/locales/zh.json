@@ -5,7 +5,8 @@
   "tip": "配置文件不存在",
   "tip1": "配置信息不完整",
   "tip2": "去配置",
-  "tip3": "刷新",
+  "tip3": "AI 支持",
+  "tip8": "使用文档",
   "configPageTitle": "配置信息",
   "tip4": "当前工作空间",
   "configInfoFrom": {
@@ -37,5 +38,5 @@
   "operate2": "复制方法名",
   "operate3": "复制接口引用",
   "operate4": "查看接口方法",
-    "operate5": "快速使用"
+  "operate5": "快速使用"
 }
