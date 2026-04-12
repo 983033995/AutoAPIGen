@@ -2,6 +2,7 @@ import chalk from 'chalk'
 import { initHttp, getApiTreeList, getApiDetailList, getDataSchemas } from '@auto-api-gen/core'
 import type { ConfigFromModel, ApiTreeListResData, ApiDetailListData, ApiDetailParametersQuery } from '@auto-api-gen/core'
 import { buildParameters, convertPathToPascalCase } from '../generator/codeGen'
+import type { ApiDataSchemasItem } from '@auto-api-gen/core'
 
 export interface QueryOptions {
   group?: string
@@ -26,31 +27,82 @@ function resolveParamType(param: ApiDetailParametersQuery): string {
   try { return buildParameters(param) } catch { return 'any' }
 }
 
-function schemaPropsToSummary(properties: Record<string, any>, required: string[] = []): any[] {
-  return Object.entries(properties || {}).map(([key, prop]: [string, any]) => ({
+/** 解析 $ref 引用，展开 properties 和 required */
+function resolveSchema(
+  schema: Record<string, any>,
+  schemas: ApiDataSchemasItem[],
+  visited = new Set<string>()
+): { properties: Record<string, any>; required: string[] } {
+  if (!schema) return { properties: {}, required: [] }
+
+  let properties: Record<string, any> = { ...(schema.properties || {}) }
+  let required: string[] = [...(schema.required || [])]
+
+  // 处理顶层 $ref
+  if (schema.$ref && !visited.has(schema.$ref)) {
+    visited.add(schema.$ref)
+    const refId = schema.$ref.split('/').pop()
+    const refSchema = schemas.find((s) => s.id === +refId)?.jsonSchema
+    if (refSchema) {
+      const resolved = resolveSchema(refSchema, schemas, visited)
+      properties = { ...resolved.properties, ...properties }
+      required = [...resolved.required, ...required]
+    }
+  }
+
+  // 处理 x-apifox-refs
+  const apifoxRefs = schema['x-apifox-refs'] || {}
+  for (const refConfig of Object.values(apifoxRefs)) {
+    const refId = (refConfig as any)?.$ref?.split('/').pop()
+    if (!refId || visited.has(refId)) continue
+    visited.add(refId)
+    const refSchema = schemas.find((s) => s.id === +refId)?.jsonSchema
+    if (refSchema) {
+      const resolved = resolveSchema(refSchema, schemas, visited)
+      properties = { ...resolved.properties, ...properties }
+      required = [...resolved.required, ...required]
+    }
+  }
+
+  // array 类型展开 items
+  if (schema.type === 'array' && schema.items) {
+    return resolveSchema(schema.items, schemas, visited)
+  }
+
+  return { properties, required }
+}
+
+function schemaToFields(
+  schema: Record<string, any>,
+  schemas: ApiDataSchemasItem[]
+): any[] | string {
+  if (!schema) return 'any'
+  const { properties, required } = resolveSchema(schema, schemas)
+  if (!Object.keys(properties).length) return schema.type || 'any'
+  return Object.entries(properties).map(([key, prop]: [string, any]) => ({
     name: key,
-    type: prop.type || (prop.$ref ? '$ref' : 'any'),
+    type: prop.type || (prop.$ref ? 'object' : prop.items ? 'array' : 'any'),
     required: required.includes(key),
     description: prop.title || prop.description || '',
   }))
 }
 
-function buildApiSummary(detail: Partial<ApiDetailListData>) {
+function buildApiSummary(detail: Partial<ApiDetailListData>, schemas: ApiDataSchemasItem[]) {
   const method = (detail.method || 'GET').toUpperCase()
   const apiPath = detail.path || ''
   const fnName = `${method.toLowerCase()}${convertPathToPascalCase(apiPath)}`
 
-  // query params
+  // query / path params
   const queryParams = (detail.parameters?.query || []).filter((p: any) => p.enable !== false)
   const pathParams = (detail.parameters?.path || []).filter((p: any) => p.enable !== false)
 
   // body
   const rb = detail.requestBody
   let body: any = null
-  if (rb?.jsonSchema?.properties) {
-    body = {
-      type: 'json',
-      fields: schemaPropsToSummary(rb.jsonSchema.properties, rb.jsonSchema.required || []),
+  if (rb?.jsonSchema) {
+    const fields = schemaToFields(rb.jsonSchema, schemas)
+    if (fields !== 'any' && (Array.isArray(fields) ? fields.length : true)) {
+      body = { type: 'json', fields }
     }
   } else if ((rb?.parameters || []).length) {
     body = {
@@ -66,12 +118,10 @@ function buildApiSummary(detail: Partial<ApiDetailListData>) {
 
   // response 200
   const res200 = (detail.responses || []).find((r: any) => +r.code === 200)
-  const responseSchema = res200?.jsonSchema
-    ? (() => {
-        const props = res200.jsonSchema?.properties
-        return props ? schemaPropsToSummary(props, res200.jsonSchema.required || []) : res200.jsonSchema?.type || 'any'
-      })()
-    : null
+  let response200: any = null
+  if (res200?.jsonSchema) {
+    response200 = schemaToFields(res200.jsonSchema, schemas)
+  }
 
   return {
     functionName: fnName,
@@ -81,7 +131,7 @@ function buildApiSummary(detail: Partial<ApiDetailListData>) {
     pathParams: pathParams.map((p: any) => ({ name: p.name, type: resolveParamType(p), required: p.required, description: p.description || '' })),
     queryParams: queryParams.map((p: any) => ({ name: p.name, type: resolveParamType(p), required: p.required, description: p.description || '' })),
     body,
-    response200: responseSchema,
+    response200,
   }
 }
 
@@ -208,7 +258,7 @@ export async function runQuery(
         method: api.method,
         path: api.path,
         group: api.group,
-        summary: detail ? buildApiSummary(detail) : null,
+        summary: detail ? buildApiSummary(detail, schemas as any[]) : null,
       }
     })
     console.log(JSON.stringify(withSummary, null, 2))
