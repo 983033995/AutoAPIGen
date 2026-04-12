@@ -9,22 +9,24 @@ import { initCodeGenContext, generateApiFiles } from '../generator/codeGen'
 
 // ─── 类型 ─────────────────────────────────────────────────────────────────────
 
-interface FlatApiItem {
+interface ApiItem {
   id: number
   name: string
   method: string
   path: string
-  group: string
-  groupPath: string[]
-  groupDisplay: string  // 原始中文分组路径，用于展示
+  groupPath: string[]       // 用于生成文件路径（已 sanitize）
+  groupDisplayPath: string[] // 原始中文，用于展示
 }
 
-interface FolderNode {
-  name: string
-  displayName: string
-  children: (FolderNode | FlatApiItem)[]
-  isFolder: true
+interface TreeFolder {
+  kind: 'folder'
+  name: string           // sanitized，用于路径
+  displayName: string    // 原始名，用于展示
+  children: TreeNode[]
+  totalApis: number
 }
+
+type TreeNode = TreeFolder | ApiItem
 
 // ─── 颜色配置 ─────────────────────────────────────────────────────────────────
 
@@ -43,7 +45,7 @@ function colorMethod(method: string): string {
   return fn(method.toUpperCase().padEnd(7))
 }
 
-// ─── 树形扁平化（保留原始 displayName 用于展示） ────────────────────────────
+// ─── 工具函数 ─────────────────────────────────────────────────────────────────
 
 function sanitizeFolderName(name: string): string {
   const hasChinese = /[\u4E00-\u9FFF]/.test(name)
@@ -53,44 +55,253 @@ function sanitizeFolderName(name: string): string {
     : sanitized.replace(/[^a-zA-Z0-9_-]/g, '') || 'unnamed'
 }
 
-function flattenTree(
-  tree: ApiTreeListResData[],
+/** 把 ApiTreeListResData[] 转为内部 TreeFolder 树 */
+function buildTree(
+  nodes: ApiTreeListResData[],
   groupPath: string[] = [],
   displayPath: string[] = [],
-): FlatApiItem[] {
-  const result: FlatApiItem[] = []
-  for (const node of tree) {
+): TreeNode[] {
+  const result: TreeNode[] = []
+  for (const node of nodes) {
     if (node.type === 'apiDetail' && node.api) {
       result.push({
         id: node.api.id,
         name: node.name,
         method: node.api.method?.toUpperCase() || 'GET',
         path: node.api.path || '',
-        group: groupPath.join('/'),
         groupPath,
-        groupDisplay: displayPath.join(' / '),
-      })
-    } else if (node.type === 'apiDetailFolder' && node.children?.length) {
-      const folderKey = sanitizeFolderName(node.name)
-      result.push(...flattenTree(
-        node.children,
-        [...groupPath, folderKey],
+        groupDisplayPath: displayPath,
+      } as ApiItem)
+    } else if (node.type === 'apiDetailFolder') {
+      const sanitized = sanitizeFolderName(node.name)
+      const children = buildTree(
+        node.children || [],
+        [...groupPath, sanitized],
         [...displayPath, node.name],
-      ))
+      )
+      const totalApis = countApis(children)
+      result.push({
+        kind: 'folder',
+        name: sanitized,
+        displayName: node.name,
+        children,
+        totalApis,
+      } as TreeFolder)
     }
   }
   return result
 }
 
-function getGroups(items: FlatApiItem[]): string[] {
-  const set = new Set<string>()
-  for (const item of items) {
-    if (item.groupDisplay) set.add(item.groupDisplay)
+function countApis(nodes: TreeNode[]): number {
+  let count = 0
+  for (const n of nodes) {
+    if ('kind' in n) count += n.totalApis
+    else count++
   }
-  return Array.from(set).sort()
+  return count
 }
 
-// ─── 主交互流程 ───────────────────────────────────────────────────────────────
+function collectAllApis(nodes: TreeNode[]): ApiItem[] {
+  const result: ApiItem[] = []
+  for (const n of nodes) {
+    if ('kind' in n) result.push(...collectAllApis(n.children))
+    else result.push(n)
+  }
+  return result
+}
+
+function searchApis(nodes: TreeNode[], keyword: string): ApiItem[] {
+  const kw = keyword.toLowerCase()
+  return collectAllApis(nodes).filter(
+    (a) => a.name.toLowerCase().includes(kw) || a.path.toLowerCase().includes(kw),
+  )
+}
+
+// ─── 渲染面包屑 ───────────────────────────────────────────────────────────────
+
+function renderBreadcrumb(stack: TreeFolder[]): string {
+  if (stack.length === 0) return chalk.bold('根目录')
+  return stack.map((f) => chalk.yellow(f.displayName)).join(chalk.dim(' / '))
+}
+
+// ─── 树形钻取式交互主流程 ─────────────────────────────────────────────────────
+
+const ACTION_SEARCH   = '__SEARCH__'
+const ACTION_BACK     = '__BACK__'
+const ACTION_CONFIRM  = '__CONFIRM__'
+const ACTION_ALL      = '__ALL__'
+
+/**
+ * 递归在某个文件夹层级交互，返回用户选中的 ApiItem 数组
+ * selected 是跨层级共享的已选集合（用 id 做 key）
+ */
+async function browseFolder(
+  folder: TreeFolder | null,  // null = 根目录
+  allRootNodes: TreeNode[],
+  stack: TreeFolder[],
+  selected: Map<number, ApiItem>,
+): Promise<void> {
+  const currentNodes = folder ? folder.children : allRootNodes
+
+  while (true) {
+    const apis = currentNodes.filter((n): n is ApiItem => !('kind' in n))
+    const folders = currentNodes.filter((n): n is TreeFolder => 'kind' in n)
+
+    const selectedCount = selected.size
+
+    // ── 构建 choices ──
+    const choices: any[] = []
+
+    // 操作区
+    choices.push(new inquirer.Separator(
+      chalk.dim(`─── 位置：${renderBreadcrumb(stack)}  已选 ${chalk.cyan(selectedCount)} 个 ───`)
+    ))
+
+    if (stack.length > 0) {
+      choices.push({ name: chalk.dim('← 返回上级'), value: ACTION_BACK })
+    }
+    choices.push({ name: chalk.magenta('🔍 全局搜索接口'), value: ACTION_SEARCH })
+
+    if (selectedCount > 0) {
+      choices.push({ name: chalk.green(`✓ 确认生成（${selectedCount} 个接口）`), value: ACTION_CONFIRM })
+    }
+
+    // 子文件夹区
+    if (folders.length > 0) {
+      choices.push(new inquirer.Separator(chalk.dim('─── 文件夹 ───')))
+      for (const f of folders) {
+        const folderSelected = collectAllApis(f.children).filter((a) => selected.has(a.id)).length
+        const badge = folderSelected > 0 ? chalk.cyan(` [已选${folderSelected}]`) : ''
+        choices.push({
+          name: `${chalk.yellow('▶')} ${chalk.bold(f.displayName)}${chalk.dim(` (${f.totalApis})`)}${badge}`,
+          value: `folder:${f.name}`,
+        })
+      }
+    }
+
+    // 接口区
+    if (apis.length > 0) {
+      choices.push(new inquirer.Separator(chalk.dim('─── 接口（空格多选）───')))
+      // 当前层"全选/取消全选"快捷键
+      const allCurrentSelected = apis.length > 0 && apis.every((a) => selected.has(a.id))
+      choices.push({
+        name: allCurrentSelected
+          ? chalk.dim('☑ 取消当前层全选')
+          : chalk.dim('☐ 选中当前层全部'),
+        value: ACTION_ALL,
+      })
+      for (const api of apis) {
+        const isSelected = selected.has(api.id)
+        const mark = isSelected ? chalk.cyan('●') : chalk.dim('○')
+        choices.push({
+          name: `${mark} ${colorMethod(api.method)} ${chalk.white(api.path)}  ${chalk.gray(api.name)}`,
+          value: `api:${api.id}`,
+        })
+      }
+    }
+
+    if (choices.length <= 2) {
+      console.log(chalk.yellow('当前目录为空'))
+      return
+    }
+
+    const { action } = await inquirer.prompt<{ action: string }>([
+      {
+        type: 'list',
+        name: 'action',
+        message: `浏览接口树`,
+        pageSize: 22,
+        choices,
+      },
+    ])
+
+    // ── 处理选择 ──
+    if (action === ACTION_BACK) {
+      return
+    }
+
+    if (action === ACTION_SEARCH) {
+      await handleSearch(allRootNodes, selected)
+      continue
+    }
+
+    if (action === ACTION_CONFIRM) {
+      return
+    }
+
+    if (action === ACTION_ALL) {
+      const allCurrentSelected = apis.every((a) => selected.has(a.id))
+      if (allCurrentSelected) {
+        apis.forEach((a) => selected.delete(a.id))
+      } else {
+        apis.forEach((a) => selected.set(a.id, a))
+      }
+      continue
+    }
+
+    if (action.startsWith('folder:')) {
+      const folderName = action.slice('folder:'.length)
+      const targetFolder = folders.find((f) => f.name === folderName)
+      if (targetFolder) {
+        await browseFolder(targetFolder, allRootNodes, [...stack, targetFolder], selected)
+      }
+      continue
+    }
+
+    if (action.startsWith('api:')) {
+      const id = parseInt(action.slice('api:'.length), 10)
+      const api = apis.find((a) => a.id === id)
+      if (!api) continue
+      if (selected.has(id)) {
+        selected.delete(id)
+      } else {
+        selected.set(id, api)
+      }
+      continue
+    }
+  }
+}
+
+/** 全局搜索，搜索结果支持多选后加入已选集合 */
+async function handleSearch(allRootNodes: TreeNode[], selected: Map<number, ApiItem>): Promise<void> {
+  const { keyword } = await inquirer.prompt<{ keyword: string }>([
+    {
+      type: 'input',
+      name: 'keyword',
+      message: '全局搜索（路径/名称关键词）：',
+    },
+  ])
+
+  if (!keyword.trim()) return
+
+  const results = searchApis(allRootNodes, keyword.trim())
+  if (results.length === 0) {
+    console.log(chalk.yellow('  没有找到匹配的接口'))
+    return
+  }
+
+  const { pickedIds } = await inquirer.prompt<{ pickedIds: number[] }>([
+    {
+      type: 'checkbox',
+      name: 'pickedIds',
+      message: `找到 ${chalk.cyan(results.length)} 个接口，勾选后加入已选列表`,
+      pageSize: 20,
+      choices: results.map((a) => ({
+        name: `${colorMethod(a.method)} ${chalk.white(a.path)}  ${chalk.gray(a.name)}`,
+        value: a.id,
+        checked: selected.has(a.id),
+      })),
+    },
+  ])
+
+  // 搜索结果中未勾选的从已选中移除，勾选的加入
+  for (const a of results) {
+    if (pickedIds.includes(a.id)) selected.set(a.id, a)
+    else selected.delete(a.id)
+  }
+}
+
+// ─── 主入口 ───────────────────────────────────────────────────────────────────
 
 export async function runInteractive(
   config: ConfigFromModel,
@@ -104,8 +315,8 @@ export async function runInteractive(
 
   // ── 1. 拉取数据 ──
   const spinner = ora('连接 Apifox，获取接口数据...').start()
-  let allItems: FlatApiItem[] = []
-  let detailList: ApiDetailListData[] = []
+  let rootNodes: TreeNode[] = []
+  let totalCount = 0
 
   try {
     await initHttp(config.appName, {
@@ -120,123 +331,57 @@ export async function runInteractive(
       getDataSchemas(projectId),
     ])
 
-    detailList = details as ApiDetailListData[]
-    allItems = flattenTree(treeList)
-    initCodeGenContext(config, detailList, schemas)
-    spinner.succeed(`获取成功，共 ${chalk.cyan(allItems.length)} 个接口`)
+    rootNodes = buildTree(treeList)
+    totalCount = countApis(rootNodes)
+    initCodeGenContext(config, details as ApiDetailListData[], schemas)
+    spinner.succeed(`获取成功，共 ${chalk.cyan(totalCount)} 个接口`)
   } catch (err: any) {
     spinner.fail(`获取失败: ${err.message}`)
     process.exit(1)
   }
 
-  if (allItems.length === 0) {
+  if (totalCount === 0) {
     console.log(chalk.yellow('未找到任何接口'))
     return
   }
 
-  // ── 2. 选择分组 ──
-  const groups = getGroups(allItems)
-  const ALL_GROUPS = '── 全部分组 ──'
+  // ── 2. 树形交互浏览 ──
+  const selected = new Map<number, ApiItem>()
+  await browseFolder(null, rootNodes, [], selected)
 
-  const { selectedGroups } = await inquirer.prompt<{ selectedGroups: string[] }>([
-    {
-      type: 'checkbox',
-      name: 'selectedGroups',
-      message: '选择要操作的分组（空格选择，回车确认）',
-      pageSize: 20,
-      choices: [
-        new inquirer.Separator('─── 快捷选项 ───'),
-        { name: chalk.cyan(ALL_GROUPS), value: ALL_GROUPS },
-        new inquirer.Separator('─── 分组列表 ───'),
-        ...groups.map((g) => ({ name: g, value: g })),
-      ],
-    },
-  ])
-
-  if (selectedGroups.length === 0) {
-    console.log(chalk.yellow('未选择分组，已退出'))
+  if (selected.size === 0) {
+    console.log(chalk.yellow('\n未选择任何接口，已退出'))
     return
   }
 
-  // ── 3. 筛选接口 ──
-  const isAllGroups = selectedGroups.includes(ALL_GROUPS)
-  const candidateItems = isAllGroups
-    ? allItems
-    : allItems.filter((item) => selectedGroups.includes(item.groupDisplay))
-
-  // ── 4. 可选：关键词二次过滤 ──
-  const { keyword } = await inquirer.prompt<{ keyword: string }>([
-    {
-      type: 'input',
-      name: 'keyword',
-      message: `在 ${chalk.cyan(candidateItems.length)} 个接口中过滤（路径/名称关键词，直接回车跳过）：`,
-    },
-  ])
-
-  const filteredItems = keyword.trim()
-    ? candidateItems.filter(
-        (item) =>
-          item.name.toLowerCase().includes(keyword.toLowerCase()) ||
-          item.path.toLowerCase().includes(keyword.toLowerCase()),
-      )
-    : candidateItems
-
-  if (filteredItems.length === 0) {
-    console.log(chalk.yellow('没有匹配的接口'))
-    return
-  }
-
-  // ── 5. 多选接口 ──
-  const { selectedIds } = await inquirer.prompt<{ selectedIds: number[] }>([
-    {
-      type: 'checkbox',
-      name: 'selectedIds',
-      message: `选择要生成的接口（${chalk.cyan(filteredItems.length)} 个，空格选择，a 全选，回车确认）`,
-      pageSize: 25,
-      choices: filteredItems.map((item) => ({
-        name: `${colorMethod(item.method)} ${chalk.white(item.path)}  ${chalk.gray(item.name)}`,
-        value: item.id,
-        short: item.name,
-      })),
-    },
-  ])
-
-  if (selectedIds.length === 0) {
-    console.log(chalk.yellow('未选择接口，已退出'))
-    return
-  }
-
-  // ── 6. 预览 + 确认 ──
-  const selectedItems = filteredItems.filter((i) => selectedIds.includes(i.id))
-
-  console.log(chalk.cyan(`\n已选择 ${selectedItems.length} 个接口：`))
-
-  // 按分组聚合展示
-  const groupedByDir = new Map<string, FlatApiItem[]>()
+  // ── 3. 汇总预览 ──
+  const selectedItems = Array.from(selected.values())
+  const groupedByDir = new Map<string, ApiItem[]>()
   for (const item of selectedItems) {
-    const groupDir = item.groupPath.join('/')
-    const dirPath = path.join(outputBase, groupDir)
+    const dirPath = path.join(outputBase, item.groupPath.join('/'))
     const existing = groupedByDir.get(dirPath) || []
     existing.push(item)
     groupedByDir.set(dirPath, existing)
   }
 
+  console.log(chalk.cyan(`\n已选择 ${selectedItems.length} 个接口，将生成到以下目录：`))
   for (const [dir, items] of groupedByDir) {
-    console.log(`  ${chalk.dim('→')} ${chalk.yellow(path.relative(cwd, dir))}`)
+    console.log(`  ${chalk.dim('→')} ${chalk.yellow(path.relative(cwd, dir))}  ${chalk.dim(`(${items.length} 个)`)}`)
     for (const item of items) {
       console.log(`      ${colorMethod(item.method)} ${chalk.white(item.path)}`)
     }
   }
 
+  // ── 4. 确认操作 ──
   const { mode } = await inquirer.prompt<{ mode: string }>([
     {
       type: 'list',
       name: 'mode',
       message: '选择操作',
       choices: [
-        { name: '生成文件', value: 'generate' },
-        { name: '预览路径（dry-run）', value: 'dryrun' },
-        { name: '取消', value: 'cancel' },
+        { name: '✓ 生成文件', value: 'generate' },
+        { name: '⊙ 预览路径（dry-run，不写入）', value: 'dryrun' },
+        { name: '✗ 取消', value: 'cancel' },
       ],
     },
   ])
@@ -248,7 +393,7 @@ export async function runInteractive(
 
   const dryRun = mode === 'dryrun'
 
-  // ── 7. 生成 ──
+  // ── 5. 生成 ──
   let totalFiles = 0
   for (const [targetDir, items] of groupedByDir) {
     const ids = items.map((i) => i.id)
@@ -257,8 +402,10 @@ export async function runInteractive(
       const results = await generateApiFiles(targetDir, ids)
       for (const result of results) {
         if (dryRun) {
+          genSpinner.stop()
           console.log(chalk.dim(`  [dry-run] ${result.apiFilePath}`))
           console.log(chalk.dim(`  [dry-run] ${result.interfaceFilePath}`))
+          genSpinner.start()
         } else {
           fs.mkdirSync(path.dirname(result.apiFilePath), { recursive: true })
           fs.writeFileSync(result.apiFilePath, result.apiContent, 'utf-8')
@@ -268,7 +415,7 @@ export async function runInteractive(
       }
       genSpinner.succeed(`已完成: ${chalk.cyan(path.relative(cwd, targetDir))}`)
     } catch (err: any) {
-      genSpinner.fail(`失败: ${targetDir} — ${err.message}`)
+      genSpinner.fail(`失败: ${err.message}`)
     }
   }
 
