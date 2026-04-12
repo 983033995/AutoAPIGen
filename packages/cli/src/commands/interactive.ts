@@ -3,7 +3,7 @@ import fs from 'fs'
 import chalk from 'chalk'
 import ora from 'ora'
 import inquirer from 'inquirer'
-import { initHttp, getApiTreeList, getApiDetailList, getDataSchemas, cnToPinyin } from '@auto-api-gen/core'
+import { initHttp, getApiTreeList, getApiDetailList, getDataSchemas, cnToPinyin, getUserProjects } from '@auto-api-gen/core'
 import type { ConfigFromModel, ApiTreeListResData, ApiDetailListData } from '@auto-api-gen/core'
 import { initCodeGenContext, generateApiFiles } from '../generator/codeGen'
 
@@ -47,11 +47,23 @@ function colorMethod(method: string): string {
 
 // ─── 工具函数 ─────────────────────────────────────────────────────────────────
 
-/** 与插件保持一致：用 cnToPinyin 生成 camelCase 路径（如 zhiFuGuanLi） */
+/** 与插件保持一致：用 cnToPinyin 生成 camelCase 路径 */
 function toFolderName(name: string): string {
   const sanitized = name.replace(/[\/\\:*?"<>|]/g, '').replace(/[\x00-\x1f]/g, '').trim()
   if (!sanitized) return 'unnamed'
   return cnToPinyin(sanitized)
+}
+
+/** convertPathToPascalCase：与插件 utils.ts 保持一致，取路径最后3段转 PascalCase */
+function convertPathToPascalCase(p: string): string {
+  p = p.replace(/^https?:\/\/[^/]+/, '')
+  const parts = p.split('/').filter(Boolean)
+  const lastThree = parts.slice(-3)
+  return lastThree.map((part) => {
+    let clean = part.replace(/[{${}]/g, '')
+    clean = clean.split(/[-_]/g).map((str, i) => i > 0 ? str.charAt(0).toUpperCase() + str.slice(1) : str).join('')
+    return clean.charAt(0).toUpperCase() + clean.slice(1)
+  }).join('')
 }
 
 /** 把 ApiTreeListResData[] 转为内部 TreeFolder 树 */
@@ -328,13 +340,31 @@ export async function runInteractive(
       Cookie: config.Cookie,
     })
 
-    const [treeList, details, schemas] = await Promise.all([
+    const [treeList, details, schemas, userProjects] = await Promise.all([
       getApiTreeList(projectId),
       getApiDetailList(),
       getDataSchemas(projectId),
+      config.useProjectName ? getUserProjects() : Promise.resolve([]),
     ])
 
-    rootNodes = buildTree(treeList)
+    // 与插件 dfs 保持一致：rootName = appName 作为 groupPath 第一段
+    const appName = config.appName  // e.g. "apifox"
+    let projectNameSegment = ''
+    if (config.useProjectName) {
+      // 与插件逻辑一致：convertPathToPascalCase(cnToPinyin(projectName))
+      const projectInfo = (userProjects as any[]).find((p: any) => p.id === projectId)
+      const projectName = projectInfo?.name || ''
+      if (projectName) {
+        projectNameSegment = convertPathToPascalCase(cnToPinyin(projectName)).trim()
+      }
+    }
+
+    // 初始 groupPath：[appName] 或 [appName, projectNameSegment]
+    const rootGroupPath = projectNameSegment
+      ? [appName, projectNameSegment]
+      : [appName]
+
+    rootNodes = buildTree(treeList, rootGroupPath, rootGroupPath)
     totalCount = countApis(rootNodes)
     initCodeGenContext(config, details as ApiDetailListData[], schemas)
     spinner.succeed(`获取成功，共 ${chalk.cyan(totalCount)} 个接口`)
