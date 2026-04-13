@@ -19,49 +19,59 @@
 
 ---
 
-## 解决的问题
+## 你是否也这样度过每一天？
 
-作为 TypeScript 开发者，你是否经常面临这些痛点？
+作为 TypeScript 开发者，接入新接口时，你是不是也在重复这些操作——手动复制 Apifox 的接口文档，逐字敲类型定义，几十个字段敲到一半眼睛发花，接口一变又得全改一遍。费时费力，还容易出错。
 
-| 痛点                                     | 解决方案                                             |
-| ---------------------------------------- | ---------------------------------------------------- |
-| 接口文档与代码不同步，手写类型又烦又易错 | 直连 Apifox，自动生成类型安全的请求函数              |
-| AI 助手不知道你有哪些接口，无法帮你生成  | `aag groups` / `aag query --json` 让 AI 读懂你的 API |
-| 接口一变，全局搜索替换，改一处漏三处     | 按 Apifox 分组组织文件，增量更新，精准替换           |
-| 多人协作时代码风格不统一                 | 统一目录结构和命名约定，开箱即用                     |
+更难受的是，当你把项目交给 AI 助手，它根本不知道你有哪些接口、每个接口的参数是什么。AI 只能干瞪眼，代码还是得你自己写。
 
-**如果你已经在用 Apifox 管理 API，AutoAPIGen 可以让你把"接口文档"直接变成"可用的 TypeScript 代码"。**
+**AutoAPIGen 把这个流程倒过来——让 Apifox 直接生成 TypeScript 代码，AI 也能读懂你的接口。**
+
+[![Video Thumbnail](https://zhanght1992.oss-cn-hangzhou.aliyuncs.com/autoApiGen/img/image5.png)](https://zhanght1992.oss-cn-hangzhou.aliyuncs.com/autoApiGen/img/video2.mov)
 
 ---
 
 ## 快速开始
 
-### 1. VS Code 插件
+### VS Code 插件（3 步搞定）
 
 1. 在 VS Code 中搜索 `AutoAPIGen` 并安装
 2. 配置 `.vscode/autoApiGen.json`（填写 Apifox 的 Authorization 和项目 ID）
 3. 打开插件面板，选择项目，搜索接口，点击生成
 
-### 2. CLI 工具
+### CLI 工具（AI 助手专用）
 
 ```bash
 # 安装
 npm install -g @zhangheteng/aag-cli
 
-# 检查配置
-aag init
-
-# 查看所有分组
+# 查看项目中所有接口分组
 aag groups
 
-# AI 友好的查询
+# 结构化查询，AI 读取后直接知道接口信息
 aag query 登录 --json
 
-# 生成指定接口
+# 生成指定接口的 TypeScript 代码
 aag generate 123456789
 
 # 交互式选择（无参数时自动进入）
 aag ui
+```
+
+---
+
+## 工作原理
+
+```text
+Apifox API
+    ↓
+AutoAPIGen 拉取接口数据（Tree / Detail / Schema）
+    ↓
+解析 JSON Schema，生成 TypeScript 类型
+    ↓
+按模板生成代码（支持自定义 head / return / extraFunction）
+    ↓
+输出到项目目录
 ```
 
 ---
@@ -91,10 +101,13 @@ aag query 用户 --json
 # 4. 最后用 aag generate 生成代码
 ```
 
-### 代码生成：TypeScript 全面适配
+支持的 AI 工具：Claude Code / Cursor / Copilot 及所有支持 `.cursorrules` / `.windsurfrules` / `CLAUDE.md` 的工具。
 
-- **类型安全**：自动解析 JSON Schema，支持 `$ref` 引用链递归解析
-- **多种模式**：axios（支持 React Query hook）、微信小程序、自定义模板
+### 代码生成：类型安全，无后顾之忧
+
+- **自动解析 JSON Schema**：支持 `$ref` 引用链递归解析，`x-apifox-refs` 和 `x-apifox-overrides` 也能智能处理
+- **完整参数支持**：路径参数、Query 参数、Body 参数全部类型推导
+- **多种生成模式**：axios（支持 React Query hook）、微信小程序、自定义模板
 - **标准化输出**：
 
 ```
@@ -102,48 +115,6 @@ aag query 用户 --json
 ├── apifox.ts      # 请求函数
 └── interface.ts   # 类型定义
 ```
-
-### AI 工作流：让 AI 真正帮你写代码
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      AutoAPIGen AI 工作流                    │
-├─────────────────────────────────────────────────────────────┤
-│  1. AI 检查本地是否有已生成的接口文件                         │
-│  2. 如无，执行 aag groups 查看分组树                         │
-│  3. 用 aag query --json 获取接口结构（函数名、参数、响应）     │
-│  4. 确认后执行 aag generate 生成代码                          │
-│  5. 代码直接可用，无需手动调整                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-支持的 AI 工具：
-
-- Claude Code / Cursor / Copilot
-- 所有支持 `.cursorrules` / `.windsurfrules` / `CLAUDE.md` 的工具
-
----
-
-## 工作原理
-
-```
-Apifox API
-    ↓
-AutoAPIGen 拉取接口数据（Tree / Detail / Schema）
-    ↓
-解析 JSON Schema，生成 TypeScript 类型
-    ↓
-按模板生成代码（支持自定义 head / return / extraFunction）
-    ↓
-输出到项目目录
-```
-
-**核心能力：**
-
-- 直连 Apifox API，实时同步接口数据
-- 支持多层 `$ref` 引用解析（递归深度可配置）
-- 智能解析 `x-apifox-refs` 和 `x-apifox-overrides`
-- 支持路径参数、Query 参数、Body 参数的完整类型推导
 
 ---
 
