@@ -11,8 +11,17 @@ DESC.md
 *.vsix
 .circleci/**
 .github/**
+.gitnexus/**
+.claude/**
+.husky/**
 .pnpm-store/**
 .git/**
+AGENTS.md
+BRANCH_PROTECTION_GUIDE.md
+repository-topics.md
+SECURITY.md
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
 
 # 排除所有测试文件
 **/*.spec.*
@@ -26,6 +35,8 @@ tsconfig.extension.json
 tsconfig.tsbuildinfo
 tailwind.config.js
 vite.config.ts
+scripts/**
+packages/**
 
 # 排除文档和示例
 vscode.md
@@ -44,7 +55,6 @@ node_modules/monaco-editor/**
 !node_modules/@monaco-editor/loader/**
 node_modules/vue/**
 node_modules/vue-i18n/**
-node_modules/dayjs/**
 node_modules/@vue/**
 node_modules/@types/**
 node_modules/@testing-library/**
