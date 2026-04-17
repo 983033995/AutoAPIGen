@@ -7,6 +7,8 @@
   "tip2": "去配置",
   "tip3": "AI 支持",
   "tip8": "使用文档",
+  "loadErrorTitle": "插件初始化失败",
+  "retryLoad": "重新加载",
   "configPageTitle": "配置信息",
   "tip4": "当前工作空间",
   "configInfoFrom": {

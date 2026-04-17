@@ -7,6 +7,8 @@
   "tip2": "deployment",
   "tip3": "AI Support",
   "tip8": "Docs",
+  "loadErrorTitle": "Failed to initialize plugin",
+  "retryLoad": "Reload",
   "configPageTitle": "Configuration Information",
   "tip4": "current working space",
   "configInfoFrom": {

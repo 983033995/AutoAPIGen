@@ -99,6 +99,9 @@ const copyDirIfExists = (src, destDir) => {
 };
 
 const main = () => {
+  console.log('[package-vsix-npm] 先执行 vscode:prepublish，确保 dist 为最新构建产物');
+  run('pnpm run vscode:prepublish', repoRoot);
+
   fs.ensureDirSync(tmpDir);
   const runtimeEntries = getRuntimePackageNames();
 

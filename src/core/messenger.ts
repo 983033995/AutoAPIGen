@@ -16,6 +16,7 @@ import {
   addImportSymbol,
   cnToPinyin,
 } from "./helpers/helper";
+import { buildPersistedConfigCleanup } from "../shared/persistedConfig";
 import { SETTING_FILE_URL } from "../constant/index";
 import {
   initHttp,
@@ -182,7 +183,7 @@ const receiveMessages = (
         // 初始化配置信息
         getWorkspaceState: async () => {
           await getWorkspaceState(webview, context, command, key, data.init);
-          setProjectMembers();
+          await setProjectMembers();
         },
         setWorkspaceState: () => {},
         // 获取当前工作区目录
@@ -225,7 +226,10 @@ const receiveMessages = (
         // 保存配置信息
         saveConfig: async () => {
           try {
-            await updateFileContent(SETTING_FILE_URL, data);
+            await updateFileContent(
+              SETTING_FILE_URL,
+              buildPersistedConfigCleanup(data),
+            );
             vscode.commands.executeCommand("AutoAPIGen.closeConfigPagePanel");
             webview.postMessage({
               command,
@@ -526,6 +530,15 @@ async function getWorkspaceState(
     sendStateToWebview({
       haveSetting: false,
       theme: vscode.window.activeColorTheme,
+    });
+    webview.postMessage({
+      command: "error",
+      data: {
+        message:
+          error instanceof Error && error.message
+            ? error.message
+            : "获取工作区状态失败，请点击重新加载重试",
+      },
     });
     vscode.window.showErrorMessage("获取工作区状态失败");
   }

@@ -4,10 +4,14 @@
 -->
 
 <script setup lang="ts">
+import { buildPersistedConfig } from "../shared/persistedConfig";
+import { applyLoadStateMessage } from "./utils/loadState";
+
 document.body.setAttribute("arco-theme", "dark");
 const { t } = useI18n();
 
 const loading = ref<boolean>(true);
+const loadErrorMessage = ref("");
 
 // 配置信息
 const configInfo = ref<ConfigurationInformation>();
@@ -86,13 +90,23 @@ const getNamesByIds = (treeData: TreeNode[], ids: number[]): string[] => {
   return names;
 };
 
+const requestWorkspaceState = (isInit = false, withGlobalLoading = false) => {
+  loadErrorMessage.value = "";
+  if (withGlobalLoading) {
+    loading.value = true;
+  } else {
+    treeListLoading.value = true;
+  }
+  vscode.postMessage({
+    command: "getWorkspaceState",
+    data: {
+      init: isInit,
+    },
+  });
+};
+
 console.log("------>sendTime", new Date().toLocaleTimeString());
-vscode.postMessage({
-  command: "getWorkspaceState",
-  data: {
-    init: false,
-  },
-});
+requestWorkspaceState(false, true);
 
 // 监听配置变化
 watch(
@@ -272,14 +286,12 @@ const countAllChildren = (treeNode: ApiTreeListResData) => {
 const treeListLoading = ref(false);
 const treeListTip = ref("数据更新中...");
 const updateTree = () => {
-  treeListLoading.value = true;
   treeListTip.value = "数据更新中...";
-  vscode.postMessage({
-    command: "getWorkspaceState",
-    data: {
-      init: true,
-    },
-  });
+  requestWorkspaceState(true);
+};
+const handlerRetryLoad = () => {
+  treeListTip.value = "配置加载中...";
+  requestWorkspaceState(true, true);
 };
 const handlerTreeClick = (data: ApiTreeListResData) => {
   console.log("------>handlerTreeClick", data);
@@ -312,6 +324,17 @@ const handleSelectOperate = (type: string, data: ApiTreeListResData) => {
 const projectId = ref<number[]>([]);
 window.addEventListener("message", (event) => {
   const message = event.data;
+  const nextLoadState = applyLoadStateMessage(
+    {
+      loading: loading.value,
+      treeListLoading: treeListLoading.value,
+      loadErrorMessage: loadErrorMessage.value,
+    },
+    message,
+  );
+  loading.value = nextLoadState.loading;
+  treeListLoading.value = nextLoadState.treeListLoading;
+  loadErrorMessage.value = nextLoadState.loadErrorMessage;
 
   console.log("----- getWorkspaceState ------", message);
   switch (message.command) {
@@ -323,19 +346,13 @@ window.addEventListener("message", (event) => {
         configInfo.value?.configInfo.projectId || [],
       );
       projectId.value = configInfo.value?.configInfo.projectId || [];
-      loading.value = false;
-      treeListLoading.value = false;
       console.log(
         "----- configInfo ------",
         configInfo.value,
         checkConfigRes.value,
       );
       break;
-    case "loadData":
-      loading.value = true;
-      break;
-    case "joinEnd":
-      treeListLoading.value = false;
+    case "error":
       break;
     // case 'setCurrentFileExample':
     //   lastFile.value = currentFile.value
@@ -348,15 +365,14 @@ const changeProjectId = (value: number[]) => {
   showProjectCascade.value = false;
   console.log("------>changeProjectId", value);
   treeListLoading.value = true;
-  const configData = {
-    ...(JSON.parse(JSON.stringify(toRaw(configInfo.value?.configInfo))) || {}),
-    projectId: toRaw(value),
-  };
-  const { ...rest } = configData;
+  const configData = buildPersistedConfig(
+    JSON.parse(JSON.stringify(toRaw(configInfo.value?.configInfo))) || {},
+  );
+  configData.projectId = toRaw(value);
   console.log("------>configData", configData);
   vscode.postMessage({
     command: "saveConfig",
-    data: rest,
+    data: configData,
   });
 };
 </script>
@@ -431,7 +447,44 @@ const changeProjectId = (value: number[]) => {
         class="w-full flex-1 overflow-hidden"
       >
         <div
-          v-if="checkConfigRes.success"
+          v-if="loadErrorMessage"
+          class="h-full flex flex-col items-center justify-center w-full overflow-y-auto"
+        >
+          <a-result status="error" class="mt-[-5rem]">
+            <template #title>
+              <h3 class="empty-tip">
+                {{ t("loadErrorTitle") }}
+              </h3>
+            </template>
+            <template #subtitle>
+              <div class="px-[16px] opacity-80 text-center leading-[1.6]">
+                {{ loadErrorMessage }}
+              </div>
+            </template>
+            <template #extra>
+              <a-space>
+                <a-button
+                  type="primary"
+                  size="small"
+                  class="rounded-lg"
+                  @click="handlerRetryLoad"
+                >
+                  {{ t("retryLoad") }}
+                </a-button>
+                <a-button
+                  type="outline"
+                  size="small"
+                  class="rounded-lg"
+                  @click="handlerDeployment"
+                >
+                  {{ t("tip2") }}
+                </a-button>
+              </a-space>
+            </template>
+          </a-result>
+        </div>
+        <div
+          v-else-if="checkConfigRes.success"
           class="w-full h-full overflow-hidden flex-col flex"
         >
           <div class="w-full flex justify-between">
